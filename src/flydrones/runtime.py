@@ -89,13 +89,7 @@ class Pilot:
             self.drone.send(cmd)
         if self.learner is not None:
             self.learner.observe(dt)
-            col = int(getattr(self.drone, "collisions", 0) or 0)
-            if col > self._collisions_seen:
-                self._collisions_seen = col
-                self.learner.reinforce(-1.0)
-            elif getattr(self, "_collisions_seen", 0) and cmd.escape:
-                # Dodge after a hit, lived — not a climb lesson.
-                self.learner.reinforce(0.35)
+            self.learner.reinforce(self.learner.verdict())
         self.history.append({"t": t, "alt": tel.alt_m, "x": tel.x_m, "y": tel.y_m, "yaw": tel.yaw_deg, **{f"cmd_{k}": getattr(cmd, k) for k in ("throttle", "yaw", "forward")},
                              "escape": cmd.escape, **{f"hz_{k}": v for k, v in rates.items() if k.startswith("DN")}})
         return TickInfo(t, cam if cam is not None else frame, rates, raw, cmd, tel, g, self.illusion.mode if g is not None else "camera",

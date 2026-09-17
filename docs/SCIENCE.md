@@ -184,13 +184,14 @@ flydrones expand --brain data/malecns_brain.npz --grow 2000
 ### After development: hit a wall, dodge, ask again
 
 Development teaches how to drive the legs. `examples/08_online.py` then puts
-the animal in an arena. It walks, hits the north wall, dodges. Pose resets.
-If the hit and dodge kept writing, the next approach does not hit. If they
-were not written, it hits again. The event is not turned into a frozen lesson.
+the animal in an arena. Contact (mdIV), halt (chordotonal), loom (LPLC2) and
+unload enter the brain. PPL1 (and MBON rates) supply the teaching factor —
+there is no `if hit: −1`. First approach hits and dodges. If that writing
+stays on, the next approach does not hit.
 
-Measured MiniCNS +80: first approach hits and dodges on both arms. Second
-approach hits if the wall event was not written, and does not hit if it was
-([docs/growth/malecns_life.md](growth/malecns_life.md)).
+Measured MiniCNS +80 (340 cells): first approach hits and dodges on both arms.
+Second approach hits if the wall event was not written, and does not hit if
+PPL1 judged it ([docs/growth/malecns_life.md](growth/malecns_life.md)).
 
 ```bash
 python examples/08_online.py

@@ -49,7 +49,7 @@ Collision-triggered PPL1 on the drone is still a separate item.
 ## 场地里撞墙，躲开，下次还会不会撞
 
 发育只教会怎么动腿。放到场地里走。今天撞了墙、躲开了。问下次还会不会撞。
-这份经验当场写，不靠训练冻住。
+痛、急停、卸力进脑子，由 PPL1 自己判定，程序不写 −1。
 
 | | 第一次 | 第二次 |
 |---|---|---|
@@ -61,4 +61,4 @@ python examples/08_online.py
 flydrones expand --brain minicns --grow 80 --life
 ```
 
-闭环：`learn.online: true`。撞墙当场写，不把这次冻成一堂课。
+闭环：`learn.online: true`。身体多路信号进脑子，PPL1 判定，不在程序里写惩罚。

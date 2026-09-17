@@ -36,6 +36,9 @@ def build_minicns(seed: int = 3) -> Connectome:
         add("T1_MN", 4, s, +1.0)
         add("T2_MN", 4, s, +1.0)
         add("T3_MN", 4, s, +1.0)
+        add("mdIV", 4, s, +1.0)
+        add("chordotonal", 3, s, +1.0)
+    add("unloading", 4, "", +1.0)
     add("uPN_DM1", 10, "", +1.0)
     add("uPN_DM2", 10, "", +1.0)
     add("uPN_DM3", 10, "", +1.0)
@@ -92,6 +95,12 @@ def build_minicns(seed: int = 3) -> Connectome:
         connect(g("T1_MN", s), g("T2_MN", s), 10, p=0.9)
         connect(g("T2_MN", s), g("T3_MN", s), 10, p=0.9)
         connect(g("DNg02", s), g("T1_MN", s), 2, p=0.3)
+        # Body contact / halt / unload → mushroom-body teaching cells, not a Python −1.
+        connect(g("mdIV", s), g("PPL1-g1pedc", "L"), 16, p=1.0)
+        connect(g("chordotonal", s), g("PPL1-g1pedc", "L"), 10, p=0.9)
+        connect(g("mdIV", s), g("DNp01", s), 5, p=0.7)
+
+    connect(g("unloading"), g("MBON01", "L"), 12, p=1.0)
 
     gloms = [g("uPN_DM1"), g("uPN_DM2"), g("uPN_DM3"), g("uPN_DM4")]
     kcs = g("KCg-m")

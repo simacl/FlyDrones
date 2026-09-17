@@ -85,4 +85,28 @@ def test_hit_wall_dodge_next_time_online_does_not_hit_again():
     assert not online["hit_again"]
     assert frozen["drift"] < 1e-6
     assert online["n_updates"] > 0
+    assert online["first"]["verdict_min"] < -0.15
+    assert online["first"]["ppl1_max"] > 5.0
+
+
+def test_verdict_comes_from_pain_cells_not_a_minus_one():
+    import warnings
+
+    from flydrones.brain import Brain
+    from flydrones.experience import neural_verdict
+
+    c = build_minicns()
+    cfg = research_config()
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        brain = Brain(c, cfg, seed=0)
+    brain.tick({}, 120.0)
+    rest = dict(brain.last_rates)
+    quiet = neural_verdict(rest, rest)
+    brain.tick({"mdIV_L": 170.0, "mdIV_R": 170.0, "chordotonal_L": 80.0, "chordotonal_R": 80.0}, 80.0)
+    hurt = neural_verdict(brain.last_rates, rest)
+    assert abs(quiet) < 0.2
+    assert hurt < quiet
+    assert hurt < -0.2
+    assert brain.last_rates.get("PPL1", 0.0) > rest.get("PPL1", 0.0)
 

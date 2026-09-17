@@ -40,7 +40,7 @@ Code: [`runtime.py`](../src/flydrones/runtime.py).
 | `brain/expand.py` | grow a compartment; optional motor-pool graft | `expand_compartment`, `graft_appendage` |
 | `brain/plasticity.py` | three-factor weight updates on existing synapses | `PathwaySynapses`, `KCMbonSynapses` |
 | `learn.py` | develop: grow, pair, read motors | `train_body`, `run_embodied_experiment` |
-| `experience.py` | arena: hit a wall, dodge, next approach | `OnlineLearner`, `run_online_experiment` |
+| `experience.py` | arena: body channels → PPL1 judges next approach | `neural_verdict`, `run_online_experiment` |
 | `capacity.py` | frozen KC nearest-centroid (sidecar) + effector probe | `odor_capacity`, `probe_effectors` |
 | `brain/growth.py` | per-neuron census of a grown cohort (markdown + CSV) | `build_growth_report`, `write_growth_report` |
 | `viz/dashboard.py` | matplotlib dashboard, OpenCV window, GIF writer | `Dashboard` |

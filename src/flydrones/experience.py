@@ -27,8 +27,31 @@ START_X = 0.50
 START_Y = 0.18
 START_HEADING = 0.5 * math.pi
 WALL = 0.02
-HIT_ETA = 5.0
-DODGE_ETA = 1.2
+
+
+def neural_verdict(rates: dict[str, float], rest: dict[str, float] | None = None) -> float:
+    """Teaching factor from the brain's own cells, not a Python hit flag."""
+
+    def ch(*names: str) -> float:
+        s = 0.0
+        for n in names:
+            x = float(rates.get(n, 0.0))
+            if rest is not None:
+                x -= float(rest.get(n, 0.0))
+            s += x
+        return s
+
+    md = ch("mdIV_L", "mdIV_R")
+    chd = ch("chordotonal_L", "chordotonal_R")
+    unl = ch("unloading")
+    # Only judge while body channels are speaking. PPL1/MBON then pick the sign.
+    if md + unl < 20.0:
+        return 0.0
+    pain = ch("PPL1") + 0.5 * md
+    halt = 0.4 * chd
+    avoid = ch("MBON04")
+    relief = 0.9 * unl
+    return float(np.tanh((relief - pain - halt - avoid) / 90.0))
 
 
 class OnlineLearner:
@@ -72,7 +95,7 @@ class OnlineLearner:
             self.trace[i] = (1.0 - a) * self.trace[i] + a * x
 
     def reinforce(self, valence: float, kind: str = "all") -> float:
-        if abs(valence) < 1e-12 or self.eta == 0.0:
+        if not self.locs or abs(valence) < 0.06 or self.eta == 0.0:
             self.last_valence = float(valence)
             return 0.0
         if kind == "walk":
@@ -94,6 +117,9 @@ class OnlineLearner:
         self.last_valence = float(valence)
         return wrote
 
+    def verdict(self, rest: dict[str, float] | None = None) -> float:
+        return neural_verdict(self.brain.last_rates, rest)
+
 
 @dataclass
 class Body:
@@ -103,19 +129,37 @@ class Body:
     hits: int = 0
     dodged: bool = False
     path: list[tuple[float, float, float]] = field(default_factory=list)
+    contact: float = 0.0
+    halt: float = 0.0
+    unload: float = 0.0
 
     @property
     def wall_dist(self) -> float:
         return min(self.x, self.y, ARENA - self.x, ARENA - self.y)
 
-    def eyes(self, speed: float) -> dict[str, float]:
-        """What the world looks like from here. Not a teacher label."""
+    def senses(self, speed: float, prev_speed: float, hit: bool, away: bool) -> dict[str, float]:
+        """World + body. Contact, halt, unload, loom — not a punishment label."""
         face_north = float(max(0.0, math.sin(self.heading)))
         t4 = 80.0 * face_north
         dist_n = max(ARENA - self.y, 0.02)
         closing = float(max(0.0, speed * math.sin(self.heading)))
         loom = float(min(160.0, 12.0 * closing / dist_n)) if closing > 0.02 else 0.0
-        return {"T4c_L": t4, "T4c_R": t4, "LPLC2_L": loom, "LPLC2_R": 0.4 * loom}
+        self.contact = 1.0 if hit else 0.62 * self.contact
+        self.halt = max(float(max(0.0, prev_speed - speed)) / 0.35, 0.55 * self.halt)
+        self.unload = 1.0 if away else 0.55 * self.unload
+        pain = 170.0 * self.contact
+        chord = min(150.0, 220.0 * self.halt)
+        return {
+            "T4c_L": t4,
+            "T4c_R": t4,
+            "LPLC2_L": loom,
+            "LPLC2_R": 0.4 * loom,
+            "mdIV_L": pain,
+            "mdIV_R": pain,
+            "chordotonal_L": chord,
+            "chordotonal_R": chord,
+            "unloading": 100.0 * self.unload,
+        }
 
     def step(self, rates: dict[str, float], dt: float) -> tuple[bool, bool]:
         walk_l = float(rates.get("T3_MN_L", 0.0))
@@ -125,7 +169,7 @@ class Body:
         speed = 0.018 * (walk_l + walk_r)
         if esc > 50.0:
             speed -= 0.003 * (esc - 50.0)
-        before = self.wall_dist
+        before_n = ARENA - self.y
         self.heading += turn * dt
         self.x += speed * math.cos(self.heading) * dt
         self.y += speed * math.sin(self.heading) * dt
@@ -148,7 +192,7 @@ class Body:
             hit = True
         if hit:
             self.hits += 1
-        away = self.wall_dist > before + 1e-4
+        away = (ARENA - self.y) > before_n + 1e-4
         if self.hits and away:
             self.dodged = True
         self.path.append((self.x, self.y, speed))
@@ -167,32 +211,24 @@ def _approach(
     dt = dt_ms / 1000.0
     t = 0.0
     speed = 0.0
-    dodging = 0
+    prev_speed = 0.0
+    hit, away = False, False
+    felt_pain = False
     log: list[dict[str, Any]] = []
     brain.tick({}, 80.0)
+    rest = dict(brain.last_rates)
     while t < seconds - 1e-9:
-        stim = body.eyes(speed)
+        stim = body.senses(speed, prev_speed, hit, away)
+        if body.contact > 0.4:
+            felt_pain = True
         rates = brain.tick(stim, dt_ms)
         learner.observe(dt)
+        v = neural_verdict(rates, rest)
+        if online:
+            learner.reinforce(v)
+        prev_speed = speed
         hit, away = body.step(rates, dt)
         speed = body.path[-1][2] if body.path else 0.0
-        if online:
-            if hit:
-                old = learner.eta
-                learner.eta = HIT_ETA
-                learner.reinforce(-1.0, kind="walk")
-                learner.eta = DODGE_ETA
-                learner.reinforce(1.0, kind="escape")
-                learner.eta = old
-                dodging = int(0.4 / dt)
-            elif dodging > 0 and away:
-                old = learner.eta
-                learner.eta = DODGE_ETA
-                learner.reinforce(1.0, kind="escape")
-                learner.eta = old
-                dodging -= 1
-            elif dodging > 0:
-                dodging -= 1
         log.append(
             {
                 "t": t,
@@ -202,10 +238,12 @@ def _approach(
                 "walk": 0.5 * (rates.get("T3_MN_L", 0.0) + rates.get("T3_MN_R", 0.0)),
                 "escape": max(rates.get("DNp01_L", 0.0), rates.get("DNp01_R", 0.0)),
                 "wall": body.wall_dist,
+                "verdict": v,
+                "ppl1": float(rates.get("PPL1", 0.0)),
             }
         )
         t += dt
-        if body.dodged and body.y < 0.70:
+        if felt_pain and body.dodged and body.contact < 0.08:
             break
     return {
         "hits": body.hits,
@@ -218,6 +256,8 @@ def _approach(
         "path": log[:: max(1, len(log) // 30)],
         "walk_mean": float(np.mean([row["walk"] for row in log])) if log else 0.0,
         "escape_max": float(max((row["escape"] for row in log), default=0.0)),
+        "verdict_min": float(min((row["verdict"] for row in log), default=0.0)),
+        "ppl1_max": float(max((row["ppl1"] for row in log), default=0.0)),
     }
 
 
@@ -227,7 +267,7 @@ def live_once(
     *,
     online: bool = True,
     dt_ms: float = 50.0,
-    eta: float = 0.35,
+    eta: float = 1.2,
     seed: int = 0,
     approach_s: float = 6.0,
     **_ignored: Any,
@@ -261,7 +301,7 @@ def run_online_experiment(
     develop: bool = True,
     epochs: int = 6,
     seed: int = 0,
-    eta: float = 0.35,
+    eta: float = 1.2,
 ) -> dict[str, Any]:
     """Develop control, then two approaches at the wall."""
     cfg = cfg or research_config()
@@ -286,7 +326,7 @@ def format_online_report(exp: dict[str, Any], title: str | None = None) -> str:
         return [
             f"## {tag}",
             "",
-            f"- 第一次：撞 {a['hits']} 次，躲开了={a['dodged']}，离北墙最近 {a['min_north']:.3f}",
+            f"- 第一次：撞 {a['hits']} 次，躲开了={a['dodged']}，离北墙最近 {a['min_north']:.3f}，判定最低 {a.get('verdict_min', 0):.2f}",
             f"- 第二次：撞 {b['hits']} 次，离北墙最近 {b['min_north']:.3f} → **{again}**",
             "",
         ]
@@ -296,7 +336,7 @@ def format_online_report(exp: dict[str, Any], title: str | None = None) -> str:
         f"# {title or '场地里撞墙，躲开，下次还会不会撞'}",
         "",
         "发育只教会怎么动腿。放到场地里走。今天撞了墙、躲开了。问下次还会不会撞。",
-        "这份经验当场写，不靠训练冻住。",
+        "痛、急停、卸力、逼近进脑子，由 PPL1 和 MBON 自己判定。程序不写 −1。",
         "",
         *arm("墙上那次没写进去", fr),
         *arm("撞和躲当场写", on),
