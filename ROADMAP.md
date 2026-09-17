@@ -21,3 +21,4 @@
 - [ ] ROS 2 node and Gazebo world
 - [ ] Brain core onboard a Raspberry Pi 5 or Jetson carried by the drone
 - [ ] Multi-drone swarm with inter-drone looming (each fly sees the others)
+- [ ] NeuroMechFly ommatidia → R1–R6 instead of a camera retina; walking DNs instead of DNg02

@@ -147,7 +147,7 @@ Everything below is a **dry run** (commands printed, nothing sent) until you add
 | **DJI / Ryze Tello** | `pip install -e ".[tello,gestures]"` | `flydrones fly --drone tello --input both --live` | easiest start; its camera becomes the fly's eyes |
 | **Crazyflie 2.x + Flow deck** | `pip install -e ".[crazyflie,gestures]"` | `flydrones fly --drone crazyflie --input gesture` | 27 g; webcam hand as the eyes |
 | **ArduPilot / PX4** (real or SITL) | `pip install -e ".[mavlink]"` | `flydrones fly --drone mavlink --mavlink udpin:0.0.0.0:14550` | GUIDED / OFFBOARD velocity setpoints |
-| **Betaflight / INAV quad** | flash [`firmware/esp32_msp_bridge`](firmware/esp32_msp_bridge) | `flydrones fly --drone esp32 --input gesture` | ESP32 Wi-Fi → MSP RC override |
+| **NeuroMechFly / FlyGym** | FlyGym 2 from [neuromechfly.org](https://neuromechfly.org) | `flydrones fly --drone flygym --config configs/neuromechfly.yaml --input gesture` | optional fly body; descending L/R → walking CPG |
 
 Setup and wiring for each drone: [docs/HARDWARE.md](docs/HARDWARE.md). Step-by-step guide: [docs/GUIDE.md](docs/GUIDE.md).
 
@@ -193,8 +193,8 @@ A desktop CPU is faster. The control loop adapts `dt` to wall time and warns if 
 src/flydrones/
   brain/       connectome.py (MaleCNS loader, groups, subgraphs) · lif.py (simulator) · synthetic.py (MiniFly) · rewire.py (scale, ablate, shuffle)
   senses/      retina.py (optic flow, looming) · gestures.py (hand -> illusions) · encoder.py · webcam.py
-  motor/       decoder.py (descending neurons -> commands) · command.py
-  drones/      sim.py · tello.py · crazyflie.py · mavlink.py · udp_bridge.py (ESP32/MSP)
+  motor/       decoder.py (descending neurons -> commands) · command.py · descending.py (DNg02 -> FlyGym drive)
+  drones/      sim.py · tello.py · crazyflie.py · mavlink.py · udp_bridge.py (ESP32/MSP) · flygym.py (optional NeuroMechFly)
   safety.py    limits, ceiling, floor, geofence, watchdog, battery
   runtime.py   the closed loop
   calibrate.py fit the read-out on your connectome
@@ -203,9 +203,9 @@ src/flydrones/
   cli.py       `flydrones ...`
 docs/index.html + docs/live/     the browser demo (three.js, JS port of the engine)
 firmware/esp32_msp_bridge/   Arduino sketch: UDP -> MSP_SET_RAW_RC
-configs/     tello, crazyflie, mavlink SITL, esp32, malecns
+configs/     tello, crazyflie, mavlink SITL, esp32, malecns, neuromechfly
 docs/        GUIDE · HARDWARE · SCIENCE · ARCHITECTURE · CONNECTOME_DATA · SAFETY · FAQ
-examples/    poke neurons, custom decoder, replay a video, grow/lesion/rewire MiniFly
+examples/    poke neurons, custom decoder, replay a video, grow/lesion/rewire MiniFly, NeuroMechFly descending map
 tests/       pytest suite (simulator, retina, decoder, safety, protocol, MaleCNS loader)
 tools/       export the browser brain, check the JS engine against Python
 ```
@@ -244,7 +244,7 @@ See [ROADMAP.md](ROADMAP.md). Ideas and PRs are welcome: [CONTRIBUTING.md](CONTR
 - **Flight circuitry**: Namiki et al. (DNg02), Ache et al. 2019 (LPLC2/LC4 → giant fiber), DNp03 flight-saccade papers in *Current Biology* 2024-2025, Maisak et al. 2013 (T4/T5 directions).
 - Full reference list and what is literature vs. engineering: [docs/SCIENCE.md](docs/SCIENCE.md). Data licences: [THIRD_PARTY.md](THIRD_PARTY.md).
 
-**Related projects that inspired this one:** [DOOMFLY](https://github.com/nftechie/doomfly) (MaleCNS plays DOOM) · [flybrain](https://github.com/dylankainth/flybrain) (FlyWire on a Tello) · [flybrain-robot-bridge](https://github.com/Frankweb33/flybrain-robot-bridge) · [Eon fly-brain](https://github.com/eonsystemspbc/fly-brain) · [NeuroMechFly / FlyGym](https://github.com/NeLy-EPFL/flygym) · [flybody](https://github.com/TuragaLab/flybody) · [awesome-fly](https://github.com/cobanov/awesome-fly).
+**Related projects that inspired this one:** [DOOMFLY](https://github.com/nftechie/doomfly) (MaleCNS plays DOOM) · [flybrain](https://github.com/dylankainth/flybrain) (FlyWire on a Tello) · [flybrain-robot-bridge](https://github.com/Frankweb33/flybrain-robot-bridge) · [Eon fly-brain](https://github.com/eonsystemspbc/fly-brain) · [NeuroMechFly / FlyGym](https://neuromechfly.org) (the fly body this repo can drive) · [flybody](https://github.com/TuragaLab/flybody) · [awesome-fly](https://github.com/cobanov/awesome-fly).
 
 ## Contributors
 

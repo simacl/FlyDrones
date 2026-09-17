@@ -22,4 +22,5 @@ LIF neuron parameters follow Shiu P.K. et al., *Nature* 2024, and their open cod
 
 Installed separately by pip, each under its own licence: numpy, scipy, PyYAML, matplotlib, Pillow,
 OpenCV, MediaPipe (Apache-2.0; the hand landmark model is downloaded from Google on first use),
-pyarrow, pandas, djitellopy, cflib, pymavlink.
+pyarrow, pandas, djitellopy, cflib, pymavlink. Optional body: [FlyGym / NeuroMechFly](https://neuromechfly.org)
+(EPFL Neuroengineering Lab; not vendored, install from their docs).

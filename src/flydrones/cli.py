@@ -147,7 +147,7 @@ def cmd_fly(args) -> int:
         kw = {"host": args.esp32_host}
     elif args.drone == "crazyflie":
         kw = {"uri": args.uri}
-    drone = make_drone(args.drone, **kw) if args.send or args.drone == "sim" else None
+    drone = make_drone(args.drone, **kw) if args.send or args.drone in ("sim", "flygym") else None
     if drone is None:
         drone = DryRunDrone(_Stub(args.drone))
         print("DRY RUN: nothing will fly. Re-run with --send when the drone is in a safe, open space.")
@@ -186,6 +186,10 @@ def cmd_fly(args) -> int:
         from .runtime import run_sim
 
         run_sim([pilot], args.seconds or 30, hz=cfg["control"]["hz"], on_tick=lambda k, infos: on_tick(infos[0]))
+    elif args.drone == "flygym":
+        from .runtime import run_embodied
+
+        run_embodied([pilot], args.seconds or 8, hz=cfg["control"]["hz"], on_tick=lambda k, infos: on_tick(infos[0]))
     else:
         run_realtime(pilot, args.seconds, hz=cfg["control"]["hz"], on_tick=on_tick)
     if args.log:
@@ -343,7 +347,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     sp = sub.add_parser("fly", help="fly a real drone (dry run unless --send)")
     common(sp)
-    sp.add_argument("--drone", choices=["sim", "tello", "crazyflie", "mavlink", "esp32"], default="tello")
+    sp.add_argument("--drone", choices=["sim", "tello", "crazyflie", "mavlink", "esp32", "flygym"], default="tello")
     sp.add_argument("--input", choices=["camera", "gesture", "both"], default="both",
                     help="camera = drone camera optic flow, gesture = webcam hand, both = both")
     sp.add_argument("--send", action="store_true", help="really send commands to the drone")

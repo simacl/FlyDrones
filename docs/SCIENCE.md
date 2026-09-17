@@ -113,6 +113,42 @@ restore a pathway you cut — if DNg02 never sees T4c, no gain will make the dro
 On MaleCNS the same operations apply to a built `.npz` (`--brain data/malecns_brain.npz --ablate ...`).
 Population scaling (`--pop-scale`) is MiniFly-only: you cannot invent traced neurons that EM did not reconstruct.
 
+## Embodiment: drone vs NeuroMechFly
+
+[NeuroMechFly](https://neuromechfly.org) (FlyGym, EPFL Neuroengineering Lab) is a digital twin of the
+adult fly: micro-CT body, compound-eye ommatidia, odor sensors, leg adhesion, and a ventral-nerve-cord
+layer that turns a **two-value descending command** into a walking CPG
+([Wang-Chen et al., *Nat Methods* 2024](https://www.nature.com/articles/s41592-024-02497-y);
+turning-controller tutorial: left/right drive in about `[0.4, 1.2]`).
+
+FlyDrones is the complementary half: a connectome LIF brain whose motor is six descending-neuron rates.
+The two stacks meet at that descending interface:
+
+| FlyDrones | NeuroMechFly HybridTurningController |
+|---|---|
+| `DNg02_L`, `DNg02_R` (Hz) | `descending_signal = [left, right]` |
+| drone stick `throttle ∝ L+R`, `yaw ∝ R−L` | CPG amplitude L vs R, then joint + adhesion |
+| Tello / Crazyflie / sim quad | MuJoCo fly on flat or mixed terrain |
+| software optic flow on a camera | hexagonal ommatidia (`get_ommatidia_readouts`) |
+
+**This mapping is engineering.** DNg02 is a *flight* descending neuron (wing-stroke amplitude). Walking
+uses other DNs. We reuse the independent left/right pattern because that is what both APIs actually
+expose, the same way we reuse it as a quad stick. Giant-fiber escape becomes a halt (`[0.2, 0.2]`), not
+a jump takeoff. Compound-eye pixels are not yet wired into MiniFly's R1–R6; the first bridge uses the
+same gesture/camera retina as the drone backends.
+
+`examples/05_neuromechfly.py` prints the descending vector for each MiniFly stimulus, and shows that
+reversing HS laterality **swaps L/R drive** — the walking fly would turn the wrong way for the same
+reason the drone would. Optional body:
+
+```bash
+pip install 'flygym @ git+https://github.com/NeLy-EPFL/flygym.git@v2.1.0'
+flydrones fly --drone flygym --config configs/neuromechfly.yaml --input gesture --seconds 8
+```
+
+Use that config: FlyGym units are millimetres, and the drone safety floor (0.3 m) would pin a 1 mm
+animal to the ground.
+
 ## Known limitations
 
 - Point neurons: no dendrites, no gap junctions, no neuromodulator dynamics, no plasticity.
@@ -130,4 +166,4 @@ Population scaling (`--pop-scale`) is MiniFly-only: you cannot invent traced neu
 5. *Activity of a descending neuron associated with visually elicited flight saccades in Drosophila.* *Current Biology* 2024.
 6. *Drosophila DNp03 descending neurons serve as a hub within a flight saccade network.* *Current Biology* 2025.
 7. Maisak M.S. et al. *A directional tuning map of Drosophila elementary motion detectors.* *Nature* 2013.
-8. Dorkenwald S. et al. / FlyWire Consortium. *Neuronal wiring diagram of an adult brain.* *Nature* 2024.
+9. Wang-Chen S. et al. *NeuroMechFly v2: simulating embodied sensorimotor control in adult Drosophila.* *Nature Methods* 2024. [neuromechfly.org](https://neuromechfly.org).

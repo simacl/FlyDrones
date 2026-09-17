@@ -113,6 +113,35 @@ def run_sim(pilots: list[Pilot], seconds: float, hz: float = 20.0, on_tick=None,
     return out
 
 
+def run_embodied(pilots: list[Pilot], seconds: float, hz: float = 20.0, on_tick=None) -> list[list[TickInfo]]:
+    """Simulated time for bodies that integrate physics inside ``send()`` (e.g. FlyGym)."""
+    dt = 1.0 / hz
+    out: list[list[TickInfo]] = [[] for _ in pilots]
+    for p in pilots:
+        p.drone.connect()
+        p.warmup(p.decoder.settle_s + 0.1, dt)
+        if p.cfg.get("control", {}).get("takeoff", True):
+            p.drone.takeoff()
+    try:
+        steps = int(seconds * hz)
+        for k in range(steps):
+            t = k * dt
+            infos = []
+            for i, p in enumerate(pilots):
+                info = p.tick(t, dt)
+                out[i].append(info)
+                infos.append(info)
+            if on_tick:
+                on_tick(k, infos)
+            if any(p.safety.land_requested for p in pilots):
+                break
+    finally:
+        for p in pilots:
+            p.drone.land()
+            p.drone.close()
+    return out
+
+
 def run_realtime(pilot: Pilot, seconds: float | None = None, hz: float = 20.0, on_tick=None) -> None:
     """Fly real hardware. Ctrl+C lands."""
     dt_target = 1.0 / hz

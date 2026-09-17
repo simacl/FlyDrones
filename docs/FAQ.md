@@ -25,6 +25,12 @@ The drone still reads the same descending neurons. Cut T4c→VS and it will not 
 and it turns the wrong way; shuffle the targets and the reflexes disappear. The decoder and the safety
 governor do not compensate. `examples/04_rewire.py` prints the table.
 
+**How does this relate to NeuroMechFly?**
+NeuroMechFly is the body (MuJoCo fly, compound eyes, walking CPG). FlyDrones is the brain
+(connectome LIF, descending neurons). They share a two-channel descending interface. See
+[SCIENCE.md](SCIENCE.md#embodiment-drone-vs-neuromechfly), `examples/05_neuromechfly.py`, and
+`flydrones fly --drone flygym --config configs/neuromechfly.yaml`.
+
 **Can one brain fly a swarm?**
 `flydrones swarm` copies one connectome into several brains with shared wiring and separate activity.
 Each copy flies one drone. A real swarm would also need drone-to-drone collision avoidance.

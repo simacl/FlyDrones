@@ -31,7 +31,8 @@ Code: [`runtime.py`](../src/flydrones/runtime.py).
 | `senses/encoder.py` | features → Poisson rates per input neuron | `InputEncoder` |
 | `motor/decoder.py` | descending-neuron rates → `FlightCommand`, baselines, escape, cruise braking | `MotorDecoder` |
 | `safety.py` | clamps, slew rate, ceiling fade, floor, geofence, watchdog, battery, flight time | `SafetyGovernor`, `Telemetry` |
-| `drones/*` | backends | `SimDrone`, `TelloDrone`, `CrazyflieDrone`, `MavlinkDrone`, `UDPBridgeDrone` |
+| `drones/*` | backends | `SimDrone`, `TelloDrone`, `CrazyflieDrone`, `MavlinkDrone`, `UDPBridgeDrone`, `FlyGymDrone` |
+| `motor/descending.py` | DNg02 / stick → NeuroMechFly left/right CPG drive | `from_dng02`, `from_command` |
 | `calibrate.py` | stimulus battery + ridge regression read-out | `calibrate` |
 | `circuit.py` | grow / lesion / rewire MiniFly and probe descending neurons | `probe`, `preset_connectomes` |
 | `brain/rewire.py` | scale synapses, ablate, flip signs, reverse laterality, shuffle | `ablate`, `shuffle_wiring`, ... |
