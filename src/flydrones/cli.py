@@ -299,6 +299,8 @@ def cmd_circuit(args) -> int:
             flip=args.flip,
             shuffle=args.shuffle,
             reverse=args.reverse,
+            clone=args.clone,
+            clone_normalize=args.normalize,
         )
         print(c.summary())
         variants = [(args.name or c.name, c)]
@@ -400,7 +402,8 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--pop-scale", type=float, default=1.0, help="multiply MiniFly population sizes")
     sp.add_argument("--syn-scale", type=float, default=1.0, help="multiply synapse counts")
     sp.add_argument("--extra-neurons", type=int, default=0, help="add unconnected neurons (slower, same flight)")
-    sp.add_argument("--normalize", action="store_true", help="with --pop-scale, keep mean synaptic drive per cell")
+    sp.add_argument("--normalize", action="store_true", help="with --pop-scale or --clone, keep mean synaptic drive per cell")
+    sp.add_argument("--clone", help="add neurons of one type by copying its axons/dendrites, e.g. T4c:96 or T4c:L:48")
     sp.add_argument("--ablate", help="cut a pathway, type regexes as pre:post (e.g. T4c:VS)")
     sp.add_argument("--flip", help="negate outgoing synapses of this cell type (e.g. LPi_v)")
     sp.add_argument("--reverse", help="send this type's axons to the other hemisphere (e.g. HS)")

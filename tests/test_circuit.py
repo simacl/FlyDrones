@@ -1,4 +1,13 @@
-from flydrones.brain import Brain, ablate, add_silent_neurons, build_minifly, flip_signs, reverse_laterality, shuffle_wiring
+from flydrones.brain import (
+    Brain,
+    ablate,
+    add_silent_neurons,
+    build_minifly,
+    clone_neurons,
+    flip_signs,
+    reverse_laterality,
+    shuffle_wiring,
+)
 from flydrones.brain.rewire import pathway_weight, scale_synapses
 from flydrones.circuit import lift, probe, yaw_proxy
 from flydrones.cli import main
@@ -8,7 +17,8 @@ from flydrones.config import load_config
 def test_minifly_pop_scale_adds_cells_and_synapses():
     a = build_minifly()
     b = build_minifly(pop_scale=2.0)
-    assert b.n == 2 * a.n
+    assert (a.types == "DNp01").sum() == (b.types == "DNp01").sum() == 2  # giant fiber is identified
+    assert b.n == a.n * 2 - 2
     assert b.n_connections > a.n_connections * 1.5
 
 
@@ -17,6 +27,33 @@ def test_silent_neurons_do_not_add_synapses():
     b = add_silent_neurons(a, 400)
     assert b.n == a.n + 400
     assert b.n_connections == a.n_connections
+
+
+def test_clone_copies_t4c_motif_only():
+    a = build_minifly()
+    n_t4c0, _ = pathway_weight(a, "^T4c$", "^VS$")
+    n_t4a0, _ = pathway_weight(a, "^T4a$", "^HS$")
+    b = clone_neurons(a, "^T4c$", 96, seed=0)
+    assert b.n == a.n + 96
+    assert (b.types == "T4c").sum() == (a.types == "T4c").sum() + 96
+    n_t4c1, _ = pathway_weight(b, "^T4c$", "^VS$")
+    n_t4a1, _ = pathway_weight(b, "^T4a$", "^HS$")
+    assert n_t4c1 > n_t4c0 * 1.4
+    assert n_t4a1 == n_t4a0  # other types keep their addresses
+
+
+def test_clone_t4c_is_louder_unless_normalized():
+    cfg = load_config()
+    kw = dict(settle_ms=400, measure_ms=500, rest_ms=200)
+    base = probe(Brain(build_minifly(), cfg), **kw)
+    loud = probe(Brain(clone_neurons(build_minifly(), "^T4c$", 96, seed=0), cfg), **kw)
+    held = probe(Brain(clone_neurons(build_minifly(), "^T4c$", 96, seed=0, normalize=True), cfg), **kw)
+    h = lift(base["climb"]) - lift(base["rest"])
+    L = lift(loud["climb"]) - lift(loud["rest"])
+    n = lift(held["climb"]) - lift(held["rest"])
+    assert h > 15
+    assert L > h + 5
+    assert abs(n - h) < 0.4 * h
 
 
 def test_scale_synapses_doubles_counts():
@@ -104,7 +141,8 @@ def test_preset_suite_covers_scale_and_wiring():
 
     variants = dict(preset_connectomes())
     assert variants["baseline"].n == 850
-    assert variants["2x-neurons"].n == 1700
+    assert variants["2x-neurons"].n == 1698  # DNp01 not duplicated
     assert variants["+400-silent"].n == 1250
+    assert variants["clone-T4c"].n == 850 + 96
     assert variants["2x-synapses"].n_synapses > variants["baseline"].n_synapses * 1.8
     assert variants["ablate-T4c→VS"].n_connections < variants["baseline"].n_connections

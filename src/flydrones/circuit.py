@@ -13,6 +13,7 @@ from .brain import (
     Connectome,
     ablate,
     add_silent_neurons,
+    clone_neurons,
     flip_signs,
     load_connectome,
     reverse_laterality,
@@ -129,13 +130,20 @@ def apply_ops(
     flip: str | None = None,
     shuffle: bool = False,
     reverse: str | None = None,
+    clone: str | None = None,
+    clone_normalize: bool = False,
     shuffle_seed: int = 1,
 ) -> Connectome:
+    from .brain.rewire import parse_clone_spec
+
     c = connectome
     if syn_scale != 1.0:
         c = scale_synapses(c, syn_scale)
     if extra_neurons:
         c = add_silent_neurons(c, extra_neurons)
+    if clone:
+        typ, side, n = parse_clone_spec(clone)
+        c = clone_neurons(c, _type_pat(typ), n, side=side, normalize=clone_normalize)
     if ablate_path:
         if ":" not in ablate_path:
             raise ValueError("--ablate needs pre:post type regexes, e.g. T4c:VS")
@@ -160,6 +168,8 @@ def preset_connectomes() -> list[tuple[str, Connectome]]:
         ("2x-neurons", build_minifly(pop_scale=2.0)),
         ("2x-neurons-norm", build_minifly(pop_scale=2.0, normalize=True)),
         ("+400-silent", add_silent_neurons(base, 400)),
+        ("clone-T4c", clone_neurons(base, "^T4c$", 96)),
+        ("clone-T4c-norm", clone_neurons(base, "^T4c$", 96, normalize=True)),
         ("ablate-T4c→VS", ablate(base, "^T4c$", "^VS$")),
         ("flip-LPi_v", flip_signs(base, "^LPi_v$")),
         ("reverse-HS", reverse_laterality(base, "^HS$")),

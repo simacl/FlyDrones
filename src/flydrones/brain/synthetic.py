@@ -44,9 +44,13 @@ def build_minifly(
     Parameters
     ----------
     pop_scale:
-        Multiply every population size. New cells get the same connection
-        probability, so total synaptic drive onto a postsynaptic cell grows
-        with ``pop_scale`` unless ``normalize=True``.
+        Multiply population sizes except identified cells (the giant fiber
+        DNp01 stays one per side). New cells of a type are wired with the
+        **same motif** as the original connect() rules. Because connection
+        probability is unchanged, total synaptic drive onto each postsynaptic
+        cell grows with ``pop_scale`` unless ``normalize=True``.
+        To add cells of *one* type without rebuilding the whole graph, use
+        ``clone_neurons`` (copy that type's real axons and dendrites).
     syn_scale:
         Multiply synapse counts on every kept connection (stronger/weaker PSPs).
     p_scale:
@@ -82,7 +86,7 @@ def build_minifly(
         _pop(pops, "PVLP_inh", _n(6), s, -1.0)  # left/right competition for saccade direction
         _pop(pops, "DNg02", _n(15), s, +1.0)
         _pop(pops, "DNp03", _n(2), s, +1.0)
-        _pop(pops, "DNp01", _n(1), s, +1.0)
+        _pop(pops, "DNp01", 1, s, +1.0)  # identified giant fiber; do not duplicate
 
     types, sides, sign = [], [], []
     index: dict[tuple[str, str], np.ndarray] = {}

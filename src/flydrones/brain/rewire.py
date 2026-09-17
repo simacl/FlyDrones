@@ -165,3 +165,129 @@ def pathway_weight(connectome: Connectome, pre: str, post: str) -> tuple[int, fl
         return 0, 0.0
     data = W.data[hit]
     return int(hit.sum()), float(data.mean())
+
+
+def clone_neurons(
+    connectome: Connectome,
+    type_pat: str,
+    n: int,
+    side: str | None = None,
+    seed: int = 0,
+    jitter: float = 0.0,
+    normalize: bool = False,
+    name: str | None = None,
+) -> Connectome:
+    """Add neurons of an existing type by cloning real axons and dendrites.
+
+    Each new cell copies one randomly chosen exemplar of the same type (and
+    side, if given):
+
+    * outgoing synapses land on the **same postsynaptic partners** (same sign
+      and roughly the same weight)
+    * incoming synapses come from the **same presynaptic partners**
+    * self-loops, if any, stay on the clone
+
+    That is the wiring rule for "more of this cell type". It is not a random
+    graph. Isolated padding (``add_silent_neurons``) and whole-network
+    ``pop_scale`` (which also grows every *other* population) are different.
+
+    If ``normalize``, every outgoing synapse from this type — old and new —
+    is scaled by ``n_old / (n_old + n)`` so mean drive onto downstream cells
+    stays put. Use that when the extra cells should only average noise.
+    Skip it when you want a louder pathway.
+
+    Identified neurons (one giant fiber per side) should not be cloned.
+    """
+    if n <= 0:
+        return connectome.copy(name)
+    types = connectome.types.astype(str)
+    sides = connectome.sides.astype(str)
+    mask = _match_types(types, type_pat)
+    if side:
+        mask &= sides == side
+    pool = np.flatnonzero(mask)
+    if pool.size == 0:
+        raise ValueError(f"no neurons matching {type_pat!r} side={side!r}")
+
+    rng = np.random.default_rng(seed)
+    exemplars = rng.choice(pool, size=n, replace=True)
+    csc = connectome.weights.tocsc()
+    csr = connectome.weights.tocsr()
+    old_n = connectome.n
+    coo = csc.tocoo()
+    chunks_r, chunks_c, chunks_d = [coo.row], [coo.col], [coo.data]
+
+    for k, e in enumerate(exemplars):
+        nid = old_n + int(k)
+        c0, c1 = int(csc.indptr[e]), int(csc.indptr[e + 1])
+        posts = csc.indices[c0:c1].copy()
+        wout = csc.data[c0:c1].copy()
+        posts = np.where(posts == e, nid, posts)
+        if jitter and wout.size:
+            wout = wout * np.float32(1.0 + jitter * rng.standard_normal(wout.size))
+        if posts.size:
+            chunks_r.append(posts.astype(np.int64))
+            chunks_c.append(np.full(posts.size, nid, dtype=np.int64))
+            chunks_d.append(wout.astype(np.float32))
+
+        r0, r1 = int(csr.indptr[e]), int(csr.indptr[e + 1])
+        pres = csr.indices[r0:r1]
+        win = csr.data[r0:r1]
+        keep = pres != e
+        pres, win = pres[keep].copy(), win[keep].copy()
+        if jitter and win.size:
+            win = win * np.float32(1.0 + jitter * rng.standard_normal(win.size))
+        if pres.size:
+            chunks_r.append(np.full(pres.size, nid, dtype=np.int64))
+            chunks_c.append(pres.astype(np.int64))
+            chunks_d.append(win.astype(np.float32))
+
+    new_n = old_n + n
+    W2 = sparse.csc_matrix(
+        (np.concatenate(chunks_d).astype(np.float32), (np.concatenate(chunks_r), np.concatenate(chunks_c))),
+        shape=(new_n, new_n),
+        dtype=np.float32,
+    )
+    W2.sum_duplicates()
+    W2.eliminate_zeros()
+    if normalize:
+        grown = np.zeros(new_n, dtype=bool)
+        grown[:old_n] = mask
+        grown[old_n:] = True
+        factor = np.float32(pool.size / (pool.size + n))
+        W2 = W2.tocoo()
+        data = W2.data.copy()
+        data[grown[W2.col]] *= factor
+        W2 = sparse.csc_matrix((data, (W2.row, W2.col)), shape=W2.shape, dtype=np.float32)
+
+    sc = None
+    if connectome.superclass is not None:
+        extra_sc = connectome.superclass[exemplars]
+        sc = np.concatenate([connectome.superclass, extra_sc])
+    bids = None
+    if connectome.body_ids is not None:
+        extra_ids = np.arange(int(connectome.body_ids.max()) + 1, int(connectome.body_ids.max()) + 1 + n, dtype=np.int64)
+        bids = np.concatenate([connectome.body_ids, extra_ids])
+    return Connectome(
+        name=name or f"{connectome.name}+{n}×{type_pat}",
+        weights=W2,
+        types=np.concatenate([types, types[exemplars]]),
+        sides=np.concatenate([sides, sides[exemplars]]),
+        superclass=sc,
+        body_ids=bids,
+        groups={k: v.copy() for k, v in connectome.groups.items()},
+        meta={
+            **connectome.meta,
+            "cloned": {"type": type_pat, "n": n, "side": side, "normalize": normalize, "seed": seed},
+        },
+    )
+
+
+def parse_clone_spec(spec: str) -> tuple[str, str | None, int]:
+    """``T4c:96`` or ``T4c:L:48`` → (type, side, count)."""
+    parts = spec.split(":")
+    if len(parts) == 2:
+        return parts[0], None, int(parts[1])
+    if len(parts) == 3:
+        return parts[0], parts[1], int(parts[2])
+    raise ValueError("--clone needs Type:N or Type:side:N, e.g. T4c:96 or T4c:L:48")

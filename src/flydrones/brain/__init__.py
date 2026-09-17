@@ -4,6 +4,7 @@ from .lif import LIFNetwork, LIFParams
 from .rewire import (
     ablate,
     add_silent_neurons,
+    clone_neurons,
     flip_signs,
     reverse_laterality,
     scale_synapses,
@@ -21,6 +22,7 @@ __all__ = [
     "add_silent_neurons",
     "build_malecns",
     "build_minifly",
+    "clone_neurons",
     "flip_signs",
     "load_connectome",
     "reverse_laterality",

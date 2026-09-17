@@ -91,15 +91,44 @@ brain, run `flydrones inspect`, and compare.
 ## What if you add neurons, add synapses, or rewire?
 
 The drone reads **mean rates** of named groups (`DNg02` L/R, `DNp01`, `DNp03`). Growing or rewiring
-the graph only matters if those rates change. `flydrones circuit --compare` and
-`examples/04_rewire.py` run the same stimulus battery on several MiniFly variants:
+the graph only matters if those rates change.
+
+### How to wire a new neuron
+
+A new cell is not a blank vertex. It copies the **motif of its cell type**:
+
+1. **Same type, same side, same partners, same sign.** A new `T4c` L gets dendrites from whatever
+   drives existing `T4c` L (in MiniFly: the camera encoder) and axons onto the same `VS` L cells,
+   excitatory. It does *not* grow a random edge to `DNp01` or to the other eye.
+2. **Clone, don't densify.** `clone_neurons` / `--clone T4c:96` copies one existing cell's incoming
+   and outgoing synapses onto each new index. `--pop-scale 2` rebuilds *every* population with the
+   same `connect()` rules, so HS, VS and DNg02 grow too and synapse count goes as \(s^2\). Use clone
+   when you mean "more T4c".
+3. **Then choose the gain.** Extra axons onto the same VS cells make the climb louder unless you pass
+   `--normalize`, which scales that type's outgoing weights by \(n_\text{old}/(n_\text{old}+n)\) so
+   mean drive is unchanged and the extra cells only average Poisson noise.
+4. **Readout populations are different.** The decoder uses the **mean** of `DNg02`. Cloning DNg02
+   (no MiniFly outgoing synapses) barely changes the command; it mainly reduces the variance of that
+   mean. Do not clone identified cells: the giant fiber `DNp01` stays **one per side**.
+5. **Grid sensory cells share ommatidia.** The encoder maps neuron \(k\) of \(n\) onto cell
+   \(\lfloor k \cdot 48 / n \rfloor\). Extra T4c sit on the existing 6×8 lattice; they do not invent
+   new viewing directions.
+6. **Empty axons do nothing.** `--extra-neurons` adds membranes with no synapses. Flight is unchanged.
+7. **MaleCNS cannot grow.** Those neurons were reconstructed by EM. You may clone MiniFly types, or
+   filter MaleCNS (`--core-hops`, `--min-synapses`); you cannot invent traced cells.
+
+`flydrones circuit --clone T4c:96` and `--clone T4c:96 --normalize` are the two experiments that
+correspond to (2)+(3). `examples/04_rewire.py` and `--compare` include both.
+
+`flydrones circuit --compare` and `examples/04_rewire.py` run the same stimulus battery on several MiniFly variants:
 
 | change | what actually happens | MiniFly `--compare` (seed 7) |
 |---|---|---|
 | **More synapses** (`--syn-scale 2`) | Each PSP is larger (`w_syn * count`). Reflexes get stronger, then saturate against the spike refractory cap (~450 Hz). | climb Δlift 66 → 160 Hz; giant fiber 59 → 104 Hz |
 | **Weaker synapses** (`--syn-scale 0.3`) | Tonic bias on DNg02 still holds a rest rate (~31 Hz/side). Visual pathways no longer push HS/VS/DNg02 off that rest, so the drone cannot climb, turn or escape. | every reflex *delta* goes to 0; rest firing stays |
-| **More of each cell type** (`--pop-scale 2`) | New cells get the same connection probability, so **total drive onto each postsynaptic cell also grows** (~4× connections). This is a louder circuit, not just a less noisy one. | climb 66 → 170 Hz, 850 → 1700 cells, 4.9k → 20k connections |
-| **Same drive, more cells** (`--pop-scale 2 --normalize`) | Synapse counts are divided by the scale, so mean input per cell stays similar. Extra cells mainly average Poisson noise. | climb 66 vs 71 Hz — same reflex, twice the neurons |
+| **More of each cell type** (`--pop-scale 2`) | Rebuild MiniFly with larger pops (except DNp01). Same motifs, but drive onto each post grows (~4× connections). A louder circuit. | climb 66 → ~170 Hz; giant fiber count stays 2 |
+| **Clone one type** (`--clone T4c:96`) | Copy T4c axons onto the same VS cells. Other pathways untouched. | climb 66 → **101 Hz**; yaw and looming stay |
+| **Clone, drive held** (`--clone T4c:96 --normalize`) | Same copies, outgoing weights of T4c scaled down. Extra cells average noise. | climb **65 Hz** (≈ baseline) |
 | **Unconnected padding** (`--extra-neurons 400`) | Isolated neurons never spike into the circuit. Flight is unchanged. At MiniFly size the extra membranes are cheap; on a 166k graph the per-step array work dominates (see [ARCHITECTURE.md](ARCHITECTURE.md)). | identical rates to baseline |
 | **Cut a pathway** (`--ablate T4c:VS`) | Scene-up never reaches VS → DNg02. Open-palm climb dies; yaw and looming use different axons and stay. | climb Δlift 66 → 0; yaw and giant fiber untouched |
 | **Flip a transmitter** (`--flip LPi_v`) | Inhibitory LPi_v becomes excitatory. Downward motion, which should *cut* lift, starts *adding* lift. | descent Δlift −60 → **+39 Hz** (sign reversal) |
