@@ -291,6 +291,7 @@ def cmd_circuit(args) -> int:
             extra_neurons=args.extra_neurons,
             normalize=args.normalize,
         )
+        base = c
         c = apply_ops(
             c,
             syn_scale=args.syn_scale,
@@ -309,7 +310,15 @@ def cmd_circuit(args) -> int:
         if grown:
             top = sorted(grown["by_type"].items(), key=lambda kv: -kv[1])[:12]
             hist = ", ".join(f"{t}={k}" for t, k in top)
-            print(f"grown {grown['n']} cells like real types (+{grown['new_connections']} synapses): {hist}")
+            nn = grown.get("new_to_new", 0)
+            print(f"grown {grown['n']} cells like real types (+{grown['new_connections']} synapses, {nn} new→new): {hist}")
+        if args.grow_report and grown:
+            from .brain import build_growth_report, write_growth_report
+
+            report = build_growth_report(base, c, cfg, probe_kw)
+            md, csv_path = write_growth_report(report, args.grow_report)
+            print(f"growth report -> {md}")
+            print(f"every new neuron -> {csv_path}")
         variants = [(args.name or c.name, c)]
     rows = [run_variant(name, conn, cfg, **probe_kw) for name, conn in variants]
     print(format_table(rows))
@@ -413,6 +422,7 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--clone", help="add neurons of one type by copying its axons/dendrites, e.g. T4c:96 or T4c:L:48")
     sp.add_argument("--grow", type=int, help="grow N new cells by resampling real type-to-type synapses (MaleCNS 166k→200k is --grow 34000)")
     sp.add_argument("--grow-types", help="restrict --grow to these cell types, comma-separated (e.g. T4c,DNg02)")
+    sp.add_argument("--grow-report", help="write a markdown+CSV census of every new neuron (path stem, e.g. docs/growth/minifly_plus200)")
     sp.add_argument("--ablate", help="cut a pathway, type regexes as pre:post (e.g. T4c:VS)")
     sp.add_argument("--flip", help="negate outgoing synapses of this cell type (e.g. LPi_v)")
     sp.add_argument("--reverse", help="send this type's axons to the other hemisphere (e.g. HS)")

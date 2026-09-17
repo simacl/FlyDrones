@@ -47,8 +47,12 @@ octopamine treated as excitatory (a simplification: their real effects are modul
 | rotation | haltere afferents | halteres act as gyroscopes | drone IMU yaw rate |
 | gestures | (none) | (none) | hand pose becomes an optic-flow illusion. Purely an interface trick |
 
-**Retinotopy is approximate.** Neurons of a group are spread over the eye grid in index order. MaleCNS has
-optic-lobe column coordinates that would allow true retinotopy; that is on the roadmap.
+**Retinotopy follows column coordinates when present.** MiniFly assigns each neuron a column on
+the 6×8 eye grid (rank within type+side, the same mapping the encoder used). Grown cells inherit
+a column from an existing cell of that type, so extra T4c share ommatidia rather than inventing
+new viewing directions. MaleCNS flat files do not always include optic-lobe columns; then the
+same rank-within-type mapping is the stand-in. True neuPrint column IDs remain a data-loader
+upgrade, not a different wiring rule.
 
 ## Motor side
 
@@ -131,21 +135,27 @@ random graph and not from a grafted gadget with a new job.
 3. Bootstrap that type's real axons: out-degree and `(target, weight)` pairs are resampled from
    existing synapses of the same type (same partners, same sign, same typical strength).
 4. Bootstrap dendrites the same way (existing cells grow collaterals onto the newborn).
-5. Birth order: newborns innervate the scaffold that is already there; they do not synapse onto
-   each other in this first model.
+5. Birth order: a newborn innervates the scaffold that is already there,
+   **including earlier-born cells of this cohort** (new-to-new synapses). A cell
+   born at step *k* cannot target a cell that does not exist yet.
 6. The original MaleCNS block is copied unchanged — you can still tell which synapses were
    measured by EM.
+7. Retinotopy: each new cell inherits a column from an existing cell of the same type
+   (densifying the 6×8 lattice, not inventing new viewing directions). Partner sampling
+   is weighted toward nearby columns (`column_tau=1.5`).
+8. Hemilineage: `(type, side)` is the lineage proxy; `birth` continues the rank within
+   that lineage. Identified neurons (`DNp01`) are never drawn.
 
 ```bash
-flydrones circuit --grow 200                         # MiniFly sanity check
+flydrones circuit --grow 200 --grow-report docs/growth/minifly_plus200
 python examples/06_grow_real.py
-flydrones circuit --grow 34000 --brain data/malecns_brain.npz
+flydrones circuit --grow 34000 --brain data/malecns_brain.npz --grow-report docs/growth/malecns_plus34000
 flydrones circuit --grow 5000 --grow-types T4c,DNg02 --brain data/malecns_brain.npz
 ```
 
-Still missing, and needed before calling the extra cells "as real as MaleCNS": retinotopic /
-column coordinates, hemilineage birth order, and new-to-new synapses once the cohort exists.
-Those are the next constraints to add, not a different wiring philosophy.
+The written report lists **every new neuron**: type, side, column `(row,col)`, hemilineage,
+birth index, in/out degree, new-to-new synapses, and actual pre/post cell types. MiniFly
++200 (every row) and MiniFly +34,000 (CSV of all cells) live in [docs/growth/](growth/).
 
 `flydrones circuit --clone T4c:96` copies **one** exemplar. `grow_like` copies the **type's
 distribution**. Use clone when you mean "another T4c like this one"; use grow when you mean

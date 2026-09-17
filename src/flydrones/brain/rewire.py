@@ -32,6 +32,41 @@ def scale_synapses(connectome: Connectome, factor: float, name: str | None = Non
     return out
 
 
+def _extend_arr(old, extra, n_old: int, n_extra: int, fill):
+    if old is None and extra is None:
+        return None
+    if old is None:
+        old = np.full(n_old, fill)
+    if extra is None:
+        extra = np.full(n_extra, fill)
+    return np.concatenate([old, extra])
+
+
+def _col_manhattan(src: int, cols: np.ndarray, n_cols: int) -> np.ndarray:
+    """Manhattan distance on the eye grid. Unknown columns get a weak prior."""
+    cols = np.asarray(cols, dtype=np.int32)
+    if src < 0 or cols.size == 0:
+        return np.zeros(cols.size, dtype=np.float64)
+    r0, c0 = divmod(int(src), int(n_cols))
+    bad = cols < 0
+    r, c = np.divmod(np.where(bad, 0, cols), int(n_cols))
+    d = (np.abs(r - r0) + np.abs(c - c0)).astype(np.float64)
+    d[bad] = 3.0
+    return d
+
+
+def _choose_weighted(rng: np.random.Generator, n: int, k: int, dist: np.ndarray | None, tau: float) -> np.ndarray:
+    if n <= 0 or k <= 0:
+        return np.zeros(0, dtype=np.int64)
+    if dist is None or tau <= 0:
+        return rng.integers(0, n, size=k)
+    p = np.exp(-np.asarray(dist, dtype=np.float64) / tau)
+    s = float(p.sum())
+    if s <= 0 or not np.isfinite(s):
+        return rng.integers(0, n, size=k)
+    return rng.choice(n, size=k, replace=True, p=p / s)
+
+
 def add_silent_neurons(connectome: Connectome, n: int, cell_type: str = "silent") -> Connectome:
     """Pad with unconnected neurons. Flight is unchanged; every LIF step still updates them."""
     if n <= 0:
@@ -57,6 +92,9 @@ def add_silent_neurons(connectome: Connectome, n: int, cell_type: str = "silent"
         body_ids=bids,
         groups={k: v.copy() for k, v in connectome.groups.items()},
         meta={**connectome.meta, "extra_neurons": n},
+        columns=_extend_arr(connectome.columns, np.full(n, -1, dtype=np.int32), connectome.n, n, -1),
+        lineage=_extend_arr(connectome.lineage, np.full(n, cell_type), connectome.n, n, ""),
+        birth=_extend_arr(connectome.birth, np.zeros(n, dtype=np.int32), connectome.n, n, -1),
     )
     return out
 
@@ -268,6 +306,15 @@ def clone_neurons(
     if connectome.body_ids is not None:
         extra_ids = np.arange(int(connectome.body_ids.max()) + 1, int(connectome.body_ids.max()) + 1 + n, dtype=np.int64)
         bids = np.concatenate([connectome.body_ids, extra_ids])
+    extra_cols = None if connectome.columns is None else connectome.columns[exemplars]
+    extra_lin = None if connectome.lineage is None else connectome.lineage[exemplars]
+    extra_birth = None
+    if connectome.birth is not None:
+        extra_birth = np.zeros(n, dtype=np.int32)
+        lin = connectome.lineage.astype(str) if connectome.lineage is not None else types
+        for k, e in enumerate(exemplars):
+            same = lin == lin[e]
+            extra_birth[k] = int(connectome.birth[same].max()) + 1 + k
     return Connectome(
         name=name or f"{connectome.name}+{n}×{type_pat}",
         weights=W2,
@@ -280,6 +327,9 @@ def clone_neurons(
             **connectome.meta,
             "cloned": {"type": type_pat, "n": n, "side": side, "normalize": normalize, "seed": seed},
         },
+        columns=_extend_arr(connectome.columns, extra_cols, old_n, n, -1),
+        lineage=_extend_arr(connectome.lineage, extra_lin, old_n, n, ""),
+        birth=_extend_arr(connectome.birth, extra_birth, old_n, n, -1),
     )
 
 
@@ -305,6 +355,8 @@ def grow_like(
     seed: int = 0,
     min_pop: int = 5,
     type_pats: list[str] | None = None,
+    column_tau: float = 1.5,
+    new_to_new: bool = True,
     name: str | None = None,
 ) -> Connectome:
     """Grow ``n`` new cells by resampling real type-to-type synapses.
@@ -315,12 +367,14 @@ def grow_like(
 
     * pick a cell type and side with probability equal to how common it is
       (rare / identified types such as the giant fiber are never drawn)
+    * inherit a **retinotopic column** from an existing cell of that type
+    * continue the **hemilineage birth order** (rank within type+side)
     * copy that type's **empirical axon**: out-degree and (target, weight)
-      pairs are bootstrap samples of real synapses from existing cells of
-      the same type
+      pairs are bootstrap samples of real synapses, weighted toward nearby
+      columns
     * copy that type's **empirical dendrites** the same way
-    * newborns only innervate the already-there scaffold (birth order);
-      they do not yet synapse onto each other
+    * birth order: a newborn innervates the scaffold that is already there,
+      including earlier-born cells of the same cohort (new-to-new synapses)
     * neurotransmitter sign comes with the sampled weights
 
     The original connectome block is unchanged. On MaleCNS,
@@ -329,11 +383,28 @@ def grow_like(
     """
     if n <= 0:
         return connectome.copy(name)
+    cols0, lin0, br0 = connectome.columns, connectome.lineage, connectome.birth
+    if cols0 is None or lin0 is None or br0 is None:
+        from .connectome import infer_geometry
+
+        cols0, lin0, br0 = infer_geometry(
+            connectome.types,
+            connectome.sides,
+            grid=connectome.grid,
+            columns=connectome.columns,
+            lineage=connectome.lineage,
+            birth=connectome.birth,
+        )
     rng = np.random.default_rng(seed)
     types = connectome.types.astype(str)
     sides = connectome.sides.astype(str)
+    columns = np.asarray(cols0, dtype=np.int32)
+    lineage = np.asarray(lin0).astype(str)
+    birth = np.asarray(br0, dtype=np.int32)
+    n_cols_grid = connectome.grid[1]
     keys = np.array([f"{t}\t{s}" for t, s in zip(types, sides)])
     unique, inv, counts = np.unique(keys, return_inverse=True, return_counts=True)
+    count_by_key = {str(k): int(c) for k, c in zip(unique, counts)}
 
     eligible: list[tuple[str, int, np.ndarray]] = []
     pats = [re.compile(p) for p in (type_pats or [])]
@@ -343,7 +414,7 @@ def grow_like(
             continue
         if pats and not any(p.search(t) for p in pats):
             continue
-        eligible.append((key, int(count), np.flatnonzero(inv == i)))
+        eligible.append((str(key), int(count), np.flatnonzero(inv == i)))
     if not eligible:
         raise ValueError("no eligible populations to grow (identified/rare types are skipped)")
 
@@ -355,8 +426,8 @@ def grow_like(
     csc = connectome.weights.tocsc()
     csr = connectome.weights.tocsr()
     coo = csc.tocoo()
-    out_pool: dict[str, tuple[np.ndarray, np.ndarray]] = {}
-    in_pool: dict[str, tuple[np.ndarray, np.ndarray]] = {}
+    out_pool: dict[str, tuple[np.ndarray, np.ndarray, np.ndarray]] = {}
+    in_pool: dict[str, tuple[np.ndarray, np.ndarray, np.ndarray]] = {}
     out_deg: dict[str, np.ndarray] = {}
     in_deg: dict[str, np.ndarray] = {}
     for key, _count, idx in eligible:
@@ -373,13 +444,15 @@ def grow_like(
             wins.append(csr.data[c0:c1])
             idg.append(c1 - c0)
         if any(p.size for p in posts):
-            out_pool[key] = (np.concatenate(posts), np.concatenate(wouts).astype(np.float32))
+            pcat = np.concatenate(posts).astype(np.int64)
+            out_pool[key] = (pcat, np.concatenate(wouts).astype(np.float32), columns[pcat])
         else:
-            out_pool[key] = (np.zeros(0, dtype=np.int64), np.zeros(0, dtype=np.float32))
+            out_pool[key] = (np.zeros(0, dtype=np.int64), np.zeros(0, dtype=np.float32), np.zeros(0, dtype=np.int32))
         if any(p.size for p in pres):
-            in_pool[key] = (np.concatenate(pres), np.concatenate(wins).astype(np.float32))
+            pcat = np.concatenate(pres).astype(np.int64)
+            in_pool[key] = (pcat, np.concatenate(wins).astype(np.float32), columns[pcat])
         else:
-            in_pool[key] = (np.zeros(0, dtype=np.int64), np.zeros(0, dtype=np.float32))
+            in_pool[key] = (np.zeros(0, dtype=np.int64), np.zeros(0, dtype=np.float32), np.zeros(0, dtype=np.int32))
         out_deg[key] = np.asarray(od, dtype=np.int64)
         in_deg[key] = np.asarray(idg, dtype=np.int64)
 
@@ -387,33 +460,76 @@ def grow_like(
     extra_r: list[np.ndarray] = []
     extra_c: list[np.ndarray] = []
     extra_d: list[np.ndarray] = []
-    new_types: list[str] = []
-    new_sides: list[str] = []
+    new_types = np.empty(n, dtype=object)
+    new_sides = np.empty(n, dtype=object)
+    new_cols = np.empty(n, dtype=np.int32)
+    new_lin = np.empty(n, dtype=object)
+    new_birth = np.empty(n, dtype=np.int32)
+    extra_sc = np.empty(n, dtype=object) if connectome.superclass is not None else None
     grown_hist: dict[str, int] = {}
+    next_birth = {e[0]: int(e[1]) for e in eligible}
+    new_ids: dict[str, list[int]] = {k: [] for k in pop_keys}
+    new_col_of: dict[str, list[int]] = {k: [] for k in pop_keys}
+    n_new_new = 0
+
+    def remap(partners: np.ndarray, src_col: int) -> np.ndarray:
+        nonlocal n_new_new
+        if not new_to_new or partners.size == 0:
+            return partners
+        out = partners.copy()
+        for i, p in enumerate(partners):
+            if int(p) >= old_n:
+                continue
+            key = str(keys[int(p)])
+            born = new_ids.get(key)
+            if not born:
+                continue
+            n_old = count_by_key.get(key, 0)
+            if rng.random() >= len(born) / (n_old + len(born)):
+                continue
+            dist = _col_manhattan(src_col, np.asarray(new_col_of[key], dtype=np.int32), n_cols_grid)
+            j = int(_choose_weighted(rng, len(born), 1, dist, column_tau)[0])
+            out[i] = born[j]
+            n_new_new += 1
+        return out
 
     drawn = rng.choice(len(pop_keys), size=n, p=pop_w)
     for k, pop_i in enumerate(drawn):
         key = pop_keys[int(pop_i)]
         t, s = key.split("\t", 1)
         nid = old_n + k
-        new_types.append(t)
-        new_sides.append(s)
+        new_types[k] = t
+        new_sides[k] = s
+        new_lin[k] = f"{t}_{s}" if s else t
+        new_birth[k] = next_birth[key]
+        next_birth[key] += 1
         grown_hist[t] = grown_hist.get(t, 0) + 1
-        idx_e = int(rng.integers(members[key].size))
+        mem = members[key]
+        idx_e = int(rng.integers(mem.size))
+        src_col = int(columns[mem[idx_e]])
+        new_cols[k] = src_col
+        if extra_sc is not None:
+            extra_sc[k] = connectome.superclass[mem[idx_e]]
         k_out = int(out_deg[key][idx_e])
         k_in = int(in_deg[key][idx_e])
-        posts, wouts = out_pool[key]
+        posts, wouts, post_cols = out_pool[key]
         if k_out and posts.size:
-            ch = rng.integers(0, posts.size, size=k_out)
-            extra_r.append(posts[ch].astype(np.int64))
+            dist = _col_manhattan(src_col, post_cols, n_cols_grid)
+            ch = _choose_weighted(rng, posts.size, k_out, dist, column_tau)
+            chosen_posts = remap(posts[ch].astype(np.int64), src_col)
+            extra_r.append(chosen_posts)
             extra_c.append(np.full(k_out, nid, dtype=np.int64))
             extra_d.append(wouts[ch].astype(np.float32))
-        pres, wins = in_pool[key]
+        pres, wins, pre_cols = in_pool[key]
         if k_in and pres.size:
-            ch = rng.integers(0, pres.size, size=k_in)
+            dist = _col_manhattan(src_col, pre_cols, n_cols_grid)
+            ch = _choose_weighted(rng, pres.size, k_in, dist, column_tau)
+            chosen_pres = remap(pres[ch].astype(np.int64), src_col)
             extra_r.append(np.full(k_in, nid, dtype=np.int64))
-            extra_c.append(pres[ch].astype(np.int64))
+            extra_c.append(chosen_pres)
             extra_d.append(wins[ch].astype(np.float32))
+        new_ids[key].append(nid)
+        new_col_of[key].append(src_col)
 
     chunks_r = [coo.row, *extra_r]
     chunks_c = [coo.col, *extra_c]
@@ -427,8 +543,8 @@ def grow_like(
     W2.eliminate_zeros()
 
     sc = None
-    if connectome.superclass is not None:
-        sc = np.concatenate([connectome.superclass, np.full(n, "")])
+    if extra_sc is not None:
+        sc = np.concatenate([connectome.superclass, np.asarray(extra_sc).astype(str)])
     bids = None
     if connectome.body_ids is not None:
         extra_ids = np.arange(int(connectome.body_ids.max()) + 1, int(connectome.body_ids.max()) + 1 + n, dtype=np.int64)
@@ -437,8 +553,8 @@ def grow_like(
     return Connectome(
         name=name or f"{connectome.name}+{n}grown",
         weights=W2,
-        types=np.concatenate([types, np.asarray(new_types)]),
-        sides=np.concatenate([sides, np.asarray(new_sides)]),
+        types=np.concatenate([types, np.asarray(new_types).astype(str)]),
+        sides=np.concatenate([sides, np.asarray(new_sides).astype(str)]),
         superclass=sc,
         body_ids=bids,
         groups={k: v.copy() for k, v in connectome.groups.items()},
@@ -446,11 +562,17 @@ def grow_like(
             **connectome.meta,
             "grown": {
                 "n": n,
+                "old_n": old_n,
                 "new_connections": added,
+                "new_to_new": n_new_new,
                 "by_type": grown_hist,
                 "seed": seed,
                 "min_pop": min_pop,
                 "type_pats": type_pats,
+                "column_tau": column_tau,
             },
         },
+        columns=np.concatenate([columns, new_cols]),
+        lineage=np.concatenate([lineage, np.asarray(new_lin).astype(str)]),
+        birth=np.concatenate([birth, new_birth]),
     )

@@ -9,7 +9,7 @@
 ## 0.2
 - [ ] First real Tello and Crazyflie flights, published with logs and unedited video
 - [ ] MaleCNS group presets verified against neuPrint (haltere, ocelli, more flight DNs)
-- [ ] Retinotopic mapping from optic-lobe column coordinates
+- [x] Retinotopic mapping from optic-lobe column coordinates (MiniFly 6×8 + rank-within-type stand-in; neuPrint column IDs still a loader upgrade)
 - [ ] Record/replay: rerun a flight log through a different brain
 
 ## 0.3

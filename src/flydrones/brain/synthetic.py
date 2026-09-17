@@ -192,4 +192,4 @@ def build_minifly(
             "extra_neurons": extra_neurons,
             "normalize": normalize,
         },
-    )
+    ).ensure_geometry()

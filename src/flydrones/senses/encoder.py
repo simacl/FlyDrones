@@ -11,9 +11,10 @@ from .retina import VisualFrame
 class InputEncoder:
     """Maps each configured input group to a per-neuron rate array.
 
-    Neurons of a group are spread over the eye grid in index order (neuron k of
-    n goes to cell floor(k * cells / n)). MiniFly is built that way; for MaleCNS
-    this is an approximation of retinotopy (see docs/SCIENCE.md).
+    Neurons of a group are mapped onto the eye grid by retinotopic column
+    when the connectome has ``columns`` (MiniFly 6×8, or rank-within-type on
+    MaleCNS). Extra cells that share a column share an ommatidium. Without
+    columns, neuron *k* of *n* goes to cell floor(*k* · cells / *n*).
     """
 
     def __init__(self, connectome: Connectome, cfg: dict):
@@ -25,7 +26,17 @@ class InputEncoder:
     def _cells(self, group: str, n_cells: int) -> np.ndarray:
         key = f"{group}:{n_cells}"
         if key not in self._cellmap:
-            n = self.c.group(group).size
+            idx = self.c.group(group)
+            cols = self.c.columns
+            if cols is not None and idx.size:
+                mapped = np.asarray(cols[idx], dtype=np.int64)
+                ok = mapped >= 0
+                if ok.any():
+                    fallback = (np.arange(idx.size) * n_cells // max(idx.size, 1)).astype(np.int64)
+                    mapped = np.where(ok, np.mod(mapped, n_cells), fallback)
+                    self._cellmap[key] = mapped.astype(np.int64)
+                    return self._cellmap[key]
+            n = idx.size
             self._cellmap[key] = (np.arange(n) * n_cells // max(n, 1)).astype(np.int64)
         return self._cellmap[key]
 

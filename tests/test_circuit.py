@@ -1,3 +1,5 @@
+import numpy as np
+
 from flydrones.brain import (
     Brain,
     ablate,
@@ -82,6 +84,60 @@ def test_grow_like_skips_giant_fiber():
     assert b.n == a.n + 80
     assert (b.types == "DNp01").sum() == 2
     assert set(b.types[a.n :]) <= set(a.types)
+
+
+def test_minifly_has_columns_lineage_birth():
+    a = build_minifly()
+    assert a.columns is not None and a.lineage is not None and a.birth is not None
+    assert a.columns.shape == (a.n,)
+    t4c = a.types == "T4c"
+    assert set(a.columns[t4c]) <= set(range(48))
+    assert str(a.lineage[t4c][0]) == "T4c_L" or str(a.lineage[t4c][0]).startswith("T4c_")
+    left = (a.types == "T4c") & (a.sides == "L")
+    assert sorted(a.birth[left].tolist()) == list(range(int(left.sum())))
+
+
+def test_grow_like_geometry_and_new_to_new():
+    from flydrones.brain import grow_like
+    from flydrones.brain.growth import census_new_neurons, new_to_new_count
+
+    a = build_minifly()
+    b = grow_like(a, 80, min_pop=5, seed=2)
+    assert b.columns is not None and b.columns.shape == (b.n,)
+    assert (b.columns[a.n :] >= 0).all()
+    assert b.lineage is not None
+    new_lin = set(b.lineage[a.n :].astype(str))
+    old_lin = set(a.lineage.astype(str))
+    assert new_lin <= old_lin
+    # later-born within a lineage
+    for lin in new_lin:
+        old_max = int(a.birth[a.lineage.astype(str) == lin].max())
+        new_b = b.birth[(np.arange(b.n) >= a.n) & (b.lineage.astype(str) == lin)]
+        if new_b.size:
+            assert int(new_b.min()) > old_max
+    nn = new_to_new_count(b, a.n)
+    assert nn > 0
+    rows = census_new_neurons(b, a.n)
+    assert len(rows) == 80
+    assert {r["type"] for r in rows} <= set(a.types)
+    assert all(r["column"] >= 0 for r in rows)
+
+
+def test_grow_report_lists_every_new_cell(tmp_path):
+    from flydrones.brain import build_growth_report, grow_like, write_growth_report
+    from flydrones.config import load_config
+
+    a = build_minifly()
+    b = grow_like(a, 30, seed=0)
+    report = build_growth_report(a, b, load_config(), probe_kw={"settle_ms": 200, "measure_ms": 200, "rest_ms": 50})
+    md, csv_path = write_growth_report(report, tmp_path / "plus30")
+    text = md.read_text(encoding="utf-8")
+    assert "全部新增神经元" in text
+    assert text.count("\n| ") >= 30
+    lines = csv_path.read_text(encoding="utf-8").strip().splitlines()
+    assert len(lines) == 31  # header + 30
+    assert (b.types[a.n :] != "DNp01").all()
+    assert report.reflexes and report.reflexes[1]["neurons"] == a.n + 30
 
 
 def test_scale_synapses_doubles_counts():
