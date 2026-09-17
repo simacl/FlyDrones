@@ -22,9 +22,10 @@ roadmap. `flydrones expand --grow-kc 160`. [RESEARCH_MALECNS.md](RESEARCH_MALECN
 **Does adding neurons give the fly new skills or more intelligence?**
 After **training**, extra Kenyon cells can learn an odor preference the original
 connectome was not born with, and they can separate good vs bad more strongly.
-They do not sprout organs. `--graft tail` is a leftover motor-pool probe, not
-the research question. MaleCNS-first: `flydrones expand --brain data/malecns_brain.npz`
-or `--brain minicns`. [RESEARCH_MALECNS.md](RESEARCH_MALECNS.md).
+They do not sprout organs. Neuron count is not learning speed and not
+wall-clock efficiency. Which behaviour you *see* still depends on the body
+(drone stick vs walking fly). `--graft tail` is a leftover motor-pool probe, not
+the research question. [RESEARCH_MALECNS.md](RESEARCH_MALECNS.md).
 
 **Can I grow MaleCNS from 166k to 200k real cells?**
 Not from EM: that volume is already complete. `flydrones circuit --grow 34000 --brain data/malecns_brain.npz`

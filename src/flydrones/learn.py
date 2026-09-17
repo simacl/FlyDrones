@@ -173,12 +173,18 @@ def run_training_experiment(
     def one(c: Connectome, lessons, tag: str) -> dict[str, Any]:
         frozen = odor_capacity(c, cfg, n_repeats=4, measure_ms=250, settle_ms=150, seed=seed)
         before = evaluate_valence(c, lessons, cfg, seed=seed + 1, repeats=eval_repeats)
+        shot, shot_log = train_odor_valence(c, lessons, cfg, epochs=1, seed=seed)
+        few = evaluate_valence(shot, lessons, cfg, seed=seed + 3, repeats=eval_repeats)
         trained_c, log = train_odor_valence(c, lessons, cfg, epochs=epochs, seed=seed)
         after = evaluate_valence(trained_c, lessons, cfg, seed=seed + 7, repeats=eval_repeats)
         row = _pack(tag, before, after, log)
         row["frozen_kc_classifier"] = frozen
         row["connectome"] = trained_c.name
         row["neurons"] = trained_c.n
+        row["fewshot_accuracy"] = few["accuracy"]
+        row["fewshot_margin"] = few["margin"]
+        row["fewshot_epochs"] = 1
+        row["fewshot_train"] = shot_log
         return row
 
     out: dict[str, Any] = {
@@ -215,6 +221,7 @@ def format_training_report(exp: dict[str, Any], title: str | None = None) -> str
             "",
             f"- Kenyon cells: **{d['n_kc']}**",
             f"- untrained MBON accuracy **{d['untrained_accuracy']:.2f}** (margin {d['untrained_margin']:.1f} Hz) — book closed",
+            f"- 1-epoch MBON accuracy **{d.get('fewshot_accuracy', float('nan')):.2f}** (margin {d.get('fewshot_margin', float('nan')):.1f} Hz) — sample efficiency",
             f"- trained MBON accuracy **{d['trained_accuracy']:.2f}** (margin {d['trained_margin']:.1f} Hz) — book read",
             f"- frozen KC nearest-centroid (sidecar, not the fly): {frozen.get('accuracy', float('nan'))}",
             f"- weight drift {d.get('train', {}).get('weight_drift', float('nan')):.1f} synapse-count units",
@@ -242,6 +249,20 @@ def format_training_report(exp: dict[str, Any], title: str | None = None) -> str
                 f"(MBON margin {gs['trained_margin']:.1f} vs {bs['trained_margin']:.1f} Hz).",
                 "",
             ]
+        bf, gf = bs.get("fewshot_accuracy", float("nan")), gs.get("fewshot_accuracy", float("nan"))
+        if bf == bf and gf == gf:
+            if gf + 1e-9 < bf:
+                lines += [
+                    f"Neuron count is not learning speed: after 1 epoch the small mushroom body "
+                    f"is ahead ({bf:.2f} vs {gf:.2f}). Extra cells help after they have been read, "
+                    f"not by making the first pairing cheaper.",
+                    "",
+                ]
+            elif gf > bf + 1e-9:
+                lines += [
+                    f"After 1 epoch the grown mushroom body is already ahead ({gf:.2f} vs {bf:.2f}).",
+                    "",
+                ]
     lines += [
         "## 2. Stronger after training (overlapping mixtures)",
         "",
@@ -275,9 +296,10 @@ def format_training_report(exp: dict[str, Any], title: str | None = None) -> str
         "### How to read this",
         "",
         "- **untrained**: extra cells do nothing useful at the MBON (unread book).",
+        "- **1 epoch**: sample efficiency — more cells are not automatically faster to train.",
         "- **trained**: the fly now has an odor preference it was not wired with.",
         "- **frozen KC classifier**: a human-side linear probe. It is not learning inside the connectome.",
-        "- Tail / extra legs were examples of *new functions*, not organs. The function tested here is learned valence.",
+        "- The *kind* of skill is the circuit; *whether it is written* is training; *what it looks like in the world* is the body.",
         "",
     ]
     return "\n".join(lines)

@@ -12,6 +12,7 @@ which smell is food. After training, preference is `MBON01 − MBON04`.
 
 - Kenyon cells: **80**
 - untrained MBON accuracy **0.00** (margin 0.0 Hz) — book closed
+- 1-epoch MBON accuracy **1.00** (margin 5.8 Hz) — sample efficiency
 - trained MBON accuracy **1.00** (margin 37.5 Hz) — book read
 - frozen KC nearest-centroid (sidecar, not the fly): 1.0
 - weight drift 1123.6 synapse-count units
@@ -20,6 +21,7 @@ which smell is food. After training, preference is `MBON01 − MBON04`.
 
 - Kenyon cells: **240**
 - untrained MBON accuracy **0.25** (margin -7.5 Hz) — book closed
+- 1-epoch MBON accuracy **0.50** (margin 5.8 Hz) — sample efficiency
 - trained MBON accuracy **1.00** (margin 50.0 Hz) — book read
 - frozen KC nearest-centroid (sidecar, not the fly): 1.0
 - weight drift 1503.3 synapse-count units
@@ -31,6 +33,8 @@ The new ability is the association, not a new organ.
 
 After the same training, extra Kenyon cells separate good vs bad more strongly (MBON margin 50.0 vs 37.5 Hz).
 
+Neuron count is not learning speed: after 1 epoch the small mushroom body is ahead (1.00 vs 0.50). Extra cells help after they have been read, not by making the first pairing cheaper.
+
 ## 2. Stronger after training (overlapping mixtures)
 
 Four blends that share glomeruli: DM1+DM2 / DM2+DM4 rewarded, DM1+DM3 / DM3+DM4 punished.
@@ -40,6 +44,7 @@ Linear KC rank is the capacity; training is what spends it.
 
 - Kenyon cells: **80**
 - untrained MBON accuracy **0.00** (margin -1.7 Hz) — book closed
+- 1-epoch MBON accuracy **1.00** (margin 9.6 Hz) — sample efficiency
 - trained MBON accuracy **1.00** (margin 58.8 Hz) — book read
 - frozen KC nearest-centroid (sidecar, not the fly): 1.0
 - weight drift 1585.5 synapse-count units
@@ -48,6 +53,7 @@ Linear KC rank is the capacity; training is what spends it.
 
 - Kenyon cells: **240**
 - untrained MBON accuracy **0.25** (margin -5.0 Hz) — book closed
+- 1-epoch MBON accuracy **0.88** (margin 5.8 Hz) — sample efficiency
 - trained MBON accuracy **1.00** (margin 67.1 Hz) — book read
 - frozen KC nearest-centroid (sidecar, not the fly): 1.0
 - weight drift 3120.9 synapse-count units
@@ -57,6 +63,7 @@ Accuracy tied; the grown mushroom body separated good vs bad with a larger MBON 
 ### How to read this
 
 - **untrained**: extra cells do nothing useful at the MBON (unread book).
+- **1 epoch**: sample efficiency — more cells are not automatically faster to train.
 - **trained**: the fly now has an odor preference it was not wired with.
 - **frozen KC classifier**: a human-side linear probe. It is not learning inside the connectome.
-- Tail / extra legs were examples of *new functions*, not organs. The function tested here is learned valence.
+- The *kind* of skill is the circuit; *whether it is written* is training; *what it looks like in the world* is the body.

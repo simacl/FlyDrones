@@ -24,18 +24,33 @@ Yes, after training: **odor valence**. Pair DM1 with reward and DM4 with punishm
 The connectome is not born knowing which smell is food. That association is the new
 ability. (A tail or two extra legs were examples of *functions*, not organs to sprout.)
 
-| condition | n_KC | MBON accuracy | MBON margin |
-|---|---:|---:|---:|
-| MiniCNS, untrained | 80 | 0.00 | 0.0 Hz |
-| MiniCNS, trained | 80 | **1.00** | 37.5 Hz |
-| +160 KC, untrained | 240 | 0.25 | −7.5 Hz (unread book) |
-| +160 KC, trained | 240 | **1.00** | **50.0 Hz** |
+| condition | n_KC | untrained | 1 epoch | trained | trained margin |
+|---|---:|---:|---:|---:|---:|
+| MiniCNS | 80 | 0.00 | **1.00** | **1.00** | 37.5 Hz |
+| +160 KC | 240 | 0.25 | 0.50 | **1.00** | **50.0 Hz** |
 
 On overlapping mixtures both brains reach accuracy 1.00 after training; extra Kenyon
 cells widen the margin (67.1 vs 58.8 Hz). Extra cells without the pairing still fail.
+After **1 epoch** the small mushroom body is already at 1.00; the grown one is at 0.50
+on the 2-odor task — more cells are not a cheaper first lesson.
 
 `grow_like` / `--grow-kc` only adds cells of types MaleCNS already has. It cannot
 invent a new body part. The new *skill* is written at existing KC→MBON boutons.
+
+## What a "capability" actually is
+
+Three different knobs. Mixing them is how this project keeps answering the wrong question.
+
+| knob | decides | does not decide |
+|---|---|---|
+| **circuit** (which cell types exist) | *what kind* of thing can be learned — no Kenyon cells, no odor memory | which body the animal has |
+| **training** (KC→MBON pairing) | *whether* that kind of thing is written | how fast the LIF runs |
+| **embodiment** (sensors + muscles + closed loop) | *what it looks like in the world* — walk away, climb, yaw a drone | whether the internal preference exists |
+| **neuron count** | after training: how cleanly patterns separate (MBON margin) | which skill exists; learning speed; wall-clock efficiency |
+
+The odor skill in this repo is still read at MBON in an open loop. Closing it onto legs (NeuroMechFly) or a drone stick would *express* the same valence as different behaviour. Same DNg02 already does that: throttle on a quad, left/right CPG on a walking fly. Growing cells does not pick the body. The body does not write the book.
+
+Neuron count is **not** efficiency. More membranes make every LIF step slower. A 1-epoch pairing is the sample-efficiency check: extra Kenyon cells are not cheaper to train; they help once they have been read.
 
 ## Question 2 — can extra neurons make the brain more powerful after training?
 

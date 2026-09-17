@@ -174,6 +174,9 @@ grows them, then trains KCâ†’MBON (PPL1/PAM teaching signal) and reads `MBON01 â
 2. **More powerful after training.** The same pairing on a grown mushroom body. Extra cells
    without training still fail. After training they can separate good vs bad more strongly.
    Overlapping mixtures are not automatic general intelligence.
+3. **Embodiment vs count.** The circuit decides *what kind* of skill can exist; training
+   writes it; the body is how it shows up (drone stick vs walking fly). Neuron count is
+   not learning speed and not wall-clock efficiency.
 
 ```bash
 python examples/07_malecns_expand.py
