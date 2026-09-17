@@ -105,6 +105,19 @@ class Connectome:
     def group(self, name: str) -> np.ndarray:
         return self.groups.get(name, np.zeros(0, dtype=np.int64))
 
+    def copy(self, name: str | None = None) -> Connectome:
+        """Deep-copy weights and labels. Groups are copied; dynamics are not."""
+        return Connectome(
+            name=name or self.name,
+            weights=self.weights.copy(),
+            types=self.types.copy(),
+            sides=self.sides.copy(),
+            superclass=None if self.superclass is None else self.superclass.copy(),
+            body_ids=None if self.body_ids is None else self.body_ids.copy(),
+            groups={k: v.copy() for k, v in self.groups.items()},
+            meta=dict(self.meta),
+        )
+
     # ------------------------------------------------------------- io
     def save(self, path: str | Path) -> Path:
         path = Path(path)

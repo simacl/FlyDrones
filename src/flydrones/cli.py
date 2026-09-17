@@ -269,6 +269,40 @@ def cmd_bench(args) -> int:
     return 0
 
 
+def cmd_circuit(args) -> int:
+    """Poke motor neurons after growing, shrinking or rewiring the connectome."""
+    from .circuit import apply_ops, format_table, load_or_minifly, preset_connectomes, run_variant
+
+    print(BANNER)
+    cfg = _cfg(args)
+    probe_kw = {"settle_ms": args.settle_ms, "measure_ms": args.measure_ms}
+    if args.compare:
+        variants = preset_connectomes()
+        print(f"{len(variants)} MiniFly variants. Same stimuli, same decoder; only the wiring changes.\n")
+    else:
+        c = load_or_minifly(
+            getattr(args, "brain", None),
+            pop_scale=args.pop_scale,
+            syn_scale=1.0,
+            extra_neurons=args.extra_neurons,
+            normalize=args.normalize,
+        )
+        c = apply_ops(
+            c,
+            syn_scale=args.syn_scale,
+            extra_neurons=0,
+            ablate_path=args.ablate,
+            flip=args.flip,
+            shuffle=args.shuffle,
+            reverse=args.reverse,
+        )
+        print(c.summary())
+        variants = [(args.name or c.name, c)]
+    rows = [run_variant(name, conn, cfg, **probe_kw) for name, conn in variants]
+    print(format_table(rows))
+    return 0
+
+
 def _write_log(path, rows) -> None:
     if not rows:
         return
@@ -352,6 +386,25 @@ def build_parser() -> argparse.ArgumentParser:
     common(sp)
     sp.add_argument("--ms", type=float, default=1000)
     sp.set_defaults(func=cmd_bench)
+
+    sp = sub.add_parser(
+        "circuit",
+        help="probe motor neurons after adding cells/synapses or changing the wiring",
+    )
+    common(sp)
+    sp.add_argument("--compare", action="store_true", help="run the MiniFly lesion suite (scale, ablate, flip, shuffle)")
+    sp.add_argument("--pop-scale", type=float, default=1.0, help="multiply MiniFly population sizes")
+    sp.add_argument("--syn-scale", type=float, default=1.0, help="multiply synapse counts")
+    sp.add_argument("--extra-neurons", type=int, default=0, help="add unconnected neurons (slower, same flight)")
+    sp.add_argument("--normalize", action="store_true", help="with --pop-scale, keep mean synaptic drive per cell")
+    sp.add_argument("--ablate", help="cut a pathway, type regexes as pre:post (e.g. T4c:VS)")
+    sp.add_argument("--flip", help="negate outgoing synapses of this cell type (e.g. LPi_v)")
+    sp.add_argument("--reverse", help="send this type's axons to the other hemisphere (e.g. HS)")
+    sp.add_argument("--shuffle", action="store_true", help="keep synapse counts, randomize who they land on")
+    sp.add_argument("--name", help="label for this variant")
+    sp.add_argument("--settle-ms", type=float, default=800)
+    sp.add_argument("--measure-ms", type=float, default=800)
+    sp.set_defaults(func=cmd_circuit)
     return p
 
 

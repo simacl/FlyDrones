@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.3 - 2026-09-17
+`flydrones circuit`: grow MiniFly, scale synapses, cut pathways, flip transmitters, reverse laterality
+or shuffle addresses, and compare descending-neuron reflexes. See `examples/04_rewire.py`.
+
 ## 0.1.2 - 2026-09-16
 Live demo 2.0: detailed blue quadcopter with a fly mascot, furnished bedroom with walls, day/night themes, shadows,
 swat-the-drone game driven by the looming pathway, click-to-stimulate neurons, clickable 3D objects, camera modes,

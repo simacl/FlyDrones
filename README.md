@@ -105,6 +105,7 @@ flydrones demo --live                 # simulated room + scripted hand, live das
 flydrones demo --record my_demo.gif   # or save it
 flydrones swarm --live                # one connectome, three pilots
 flydrones inspect                     # poke every input group, watch the motor neurons
+flydrones circuit --compare           # add cells, add synapses, cut or shuffle the wiring
 ```
 
 No camera, drone or GPU needed for any of the above.
@@ -190,20 +191,21 @@ A desktop CPU is faster. The control loop adapts `dt` to wall time and warns if 
 
 ```
 src/flydrones/
-  brain/       connectome.py (MaleCNS loader, groups, subgraphs) · lif.py (simulator) · synthetic.py (MiniFly)
+  brain/       connectome.py (MaleCNS loader, groups, subgraphs) · lif.py (simulator) · synthetic.py (MiniFly) · rewire.py (scale, ablate, shuffle)
   senses/      retina.py (optic flow, looming) · gestures.py (hand -> illusions) · encoder.py · webcam.py
   motor/       decoder.py (descending neurons -> commands) · command.py
   drones/      sim.py · tello.py · crazyflie.py · mavlink.py · udp_bridge.py (ESP32/MSP)
   safety.py    limits, ceiling, floor, geofence, watchdog, battery
   runtime.py   the closed loop
   calibrate.py fit the read-out on your connectome
+  circuit.py   stimulus battery for grow / lesion / rewire experiments
   viz/         live dashboard and GIF recorder
   cli.py       `flydrones ...`
 docs/index.html + docs/live/     the browser demo (three.js, JS port of the engine)
 firmware/esp32_msp_bridge/   Arduino sketch: UDP -> MSP_SET_RAW_RC
 configs/     tello, crazyflie, mavlink SITL, esp32, malecns
 docs/        GUIDE · HARDWARE · SCIENCE · ARCHITECTURE · CONNECTOME_DATA · SAFETY · FAQ
-examples/    small scripts to poke neurons, write your own decoder, replay a video
+examples/    poke neurons, custom decoder, replay a video, grow/lesion/rewire MiniFly
 tests/       pytest suite (simulator, retina, decoder, safety, protocol, MaleCNS loader)
 tools/       export the browser brain, check the JS engine against Python
 ```

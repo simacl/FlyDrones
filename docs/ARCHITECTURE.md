@@ -33,6 +33,8 @@ Code: [`runtime.py`](../src/flydrones/runtime.py).
 | `safety.py` | clamps, slew rate, ceiling fade, floor, geofence, watchdog, battery, flight time | `SafetyGovernor`, `Telemetry` |
 | `drones/*` | backends | `SimDrone`, `TelloDrone`, `CrazyflieDrone`, `MavlinkDrone`, `UDPBridgeDrone` |
 | `calibrate.py` | stimulus battery + ridge regression read-out | `calibrate` |
+| `circuit.py` | grow / lesion / rewire MiniFly and probe descending neurons | `probe`, `preset_connectomes` |
+| `brain/rewire.py` | scale synapses, ablate, flip signs, reverse laterality, shuffle | `ablate`, `shuffle_wiring`, ... |
 | `viz/dashboard.py` | matplotlib dashboard, OpenCV window, GIF writer | `Dashboard` |
 
 ## The simulator core

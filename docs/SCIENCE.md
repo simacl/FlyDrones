@@ -88,6 +88,31 @@ haltere ─► DNg02 other side (+), LAL_inh same side (yaw damping)
 It is useful to test the software. It is not evidence about the real fly. For that, build the MaleCNS
 brain, run `flydrones inspect`, and compare.
 
+## What if you add neurons, add synapses, or rewire?
+
+The drone reads **mean rates** of named groups (`DNg02` L/R, `DNp01`, `DNp03`). Growing or rewiring
+the graph only matters if those rates change. `flydrones circuit --compare` and
+`examples/04_rewire.py` run the same stimulus battery on several MiniFly variants:
+
+| change | what actually happens | MiniFly `--compare` (seed 7) |
+|---|---|---|
+| **More synapses** (`--syn-scale 2`) | Each PSP is larger (`w_syn * count`). Reflexes get stronger, then saturate against the spike refractory cap (~450 Hz). | climb Δlift 66 → 160 Hz; giant fiber 59 → 104 Hz |
+| **Weaker synapses** (`--syn-scale 0.3`) | Tonic bias on DNg02 still holds a rest rate (~31 Hz/side). Visual pathways no longer push HS/VS/DNg02 off that rest, so the drone cannot climb, turn or escape. | every reflex *delta* goes to 0; rest firing stays |
+| **More of each cell type** (`--pop-scale 2`) | New cells get the same connection probability, so **total drive onto each postsynaptic cell also grows** (~4× connections). This is a louder circuit, not just a less noisy one. | climb 66 → 170 Hz, 850 → 1700 cells, 4.9k → 20k connections |
+| **Same drive, more cells** (`--pop-scale 2 --normalize`) | Synapse counts are divided by the scale, so mean input per cell stays similar. Extra cells mainly average Poisson noise. | climb 66 vs 71 Hz — same reflex, twice the neurons |
+| **Unconnected padding** (`--extra-neurons 400`) | Isolated neurons never spike into the circuit. Flight is unchanged. At MiniFly size the extra membranes are cheap; on a 166k graph the per-step array work dominates (see [ARCHITECTURE.md](ARCHITECTURE.md)). | identical rates to baseline |
+| **Cut a pathway** (`--ablate T4c:VS`) | Scene-up never reaches VS → DNg02. Open-palm climb dies; yaw and looming use different axons and stay. | climb Δlift 66 → 0; yaw and giant fiber untouched |
+| **Flip a transmitter** (`--flip LPi_v`) | Inhibitory LPi_v becomes excitatory. Downward motion, which should *cut* lift, starts *adding* lift. | descent Δlift −60 → **+39 Hz** (sign reversal) |
+| **Cross the midline** (`--reverse HS`) | HS axons land on the other hemisphere. Rightward flow that used to raise right DNg02 now raises left. | yaw R−L +17 → **−17 Hz** |
+| **Shuffle addresses** (`--shuffle`) | Same axons, same synapse counts, random targets. Circuit identity is gone. | reflexes near zero; decoder still watches DNg02, which no longer means "climb" |
+
+**What does *not* change when you rewire:** the linear decoder, the safety governor, the drone backend,
+the camera → T4/T5 encoding. `flydrones calibrate` can retune the read-out weights, but it cannot
+restore a pathway you cut — if DNg02 never sees T4c, no gain will make the drone climb to an open palm.
+
+On MaleCNS the same operations apply to a built `.npz` (`--brain data/malecns_brain.npz --ablate ...`).
+Population scaling (`--pop-scale`) is MiniFly-only: you cannot invent traced neurons that EM did not reconstruct.
+
 ## Known limitations
 
 - Point neurons: no dendrites, no gap junctions, no neuromodulator dynamics, no plasticity.

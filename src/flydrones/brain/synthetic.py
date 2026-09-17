@@ -30,27 +30,59 @@ def _pop(spec: list, name: str, n: int, side: str, sign: float) -> None:
     spec.append((name, n, side, sign))
 
 
-def build_minifly(seed: int = 7) -> Connectome:
+def build_minifly(
+    seed: int = 7,
+    *,
+    pop_scale: float = 1.0,
+    syn_scale: float = 1.0,
+    p_scale: float = 1.0,
+    extra_neurons: int = 0,
+    normalize: bool = False,
+) -> Connectome:
+    """Build MiniFly.
+
+    Parameters
+    ----------
+    pop_scale:
+        Multiply every population size. New cells get the same connection
+        probability, so total synaptic drive onto a postsynaptic cell grows
+        with ``pop_scale`` unless ``normalize=True``.
+    syn_scale:
+        Multiply synapse counts on every kept connection (stronger/weaker PSPs).
+    p_scale:
+        Multiply connection probability (clipped to 1). Densifies the graph.
+    extra_neurons:
+        Unconnected filler cells. They do not change flight, but every LIF
+        step still updates their membrane, so the sim gets slower.
+    normalize:
+        Divide synapse counts by ``pop_scale`` so mean input per cell stays
+        roughly constant — extra neurons then mainly reduce rate noise.
+    """
     rng = np.random.default_rng(seed)
     cells = GRID_ROWS * GRID_COLS
+
+    def _n(n: int) -> int:
+        return max(1, int(round(n * pop_scale)))
+
+    syn_pop = (1.0 / pop_scale) if (normalize and pop_scale > 0) else 1.0
     pops: list = []
     for s in ("L", "R"):
-        _pop(pops, "R1-R6", 2 * cells, s, -1.0)  # histaminergic
+        _pop(pops, "R1-R6", _n(2 * cells), s, -1.0)  # histaminergic
         for sub in ("T4a", "T4b", "T4c", "T4d"):
-            _pop(pops, sub, cells, s, +1.0)
-        _pop(pops, "LPLC2", 24, s, +1.0)
-        _pop(pops, "LC4", 12, s, +1.0)
-        _pop(pops, "haltere", 16, s, +1.0)
-        _pop(pops, "LPi_h", 10, s, -1.0)  # glutamatergic lobula plate intrinsic (horizontal)
-        _pop(pops, "LPi_v", 10, s, -1.0)  # glutamatergic lobula plate intrinsic (vertical)
-        _pop(pops, "HS", 3, s, +1.0)
-        _pop(pops, "VS", 6, s, +1.0)
-        _pop(pops, "PVLP", 20, s, +1.0)  # looming integrators
-        _pop(pops, "LAL_inh", 12, s, -1.0)  # steering inhibition
-        _pop(pops, "PVLP_inh", 6, s, -1.0)  # left/right competition for saccade direction
-        _pop(pops, "DNg02", 15, s, +1.0)
-        _pop(pops, "DNp03", 2, s, +1.0)
-        _pop(pops, "DNp01", 1, s, +1.0)
+            _pop(pops, sub, _n(cells), s, +1.0)
+        _pop(pops, "LPLC2", _n(24), s, +1.0)
+        _pop(pops, "LC4", _n(12), s, +1.0)
+        _pop(pops, "haltere", _n(16), s, +1.0)
+        _pop(pops, "LPi_h", _n(10), s, -1.0)  # glutamatergic lobula plate intrinsic (horizontal)
+        _pop(pops, "LPi_v", _n(10), s, -1.0)  # glutamatergic lobula plate intrinsic (vertical)
+        _pop(pops, "HS", _n(3), s, +1.0)
+        _pop(pops, "VS", _n(6), s, +1.0)
+        _pop(pops, "PVLP", _n(20), s, +1.0)  # looming integrators
+        _pop(pops, "LAL_inh", _n(12), s, -1.0)  # steering inhibition
+        _pop(pops, "PVLP_inh", _n(6), s, -1.0)  # left/right competition for saccade direction
+        _pop(pops, "DNg02", _n(15), s, +1.0)
+        _pop(pops, "DNp03", _n(2), s, +1.0)
+        _pop(pops, "DNp01", _n(1), s, +1.0)
 
     types, sides, sign = [], [], []
     index: dict[tuple[str, str], np.ndarray] = {}
@@ -71,9 +103,9 @@ def build_minifly(seed: int = 7) -> Connectome:
     def connect(pre: np.ndarray, post: np.ndarray, syn: float, p: float = 1.0, jitter: float = 0.3) -> None:
         pre, post = np.asarray(pre), np.asarray(post)
         P, Q = np.meshgrid(pre, post)
-        mask = rng.random(P.shape) < p
-        w = syn * (1 + jitter * rng.standard_normal(P.shape))
-        w = np.clip(np.round(w), 1, None)
+        mask = rng.random(P.shape) < min(1.0, p * p_scale)
+        w = syn * syn_pop * (1 + jitter * rng.standard_normal(P.shape))
+        w = np.clip(np.round(w), 1, None) * syn_scale
         rows.append(Q[mask])
         cols.append(P[mask])
         vals.append(w[mask])
@@ -132,6 +164,11 @@ def build_minifly(seed: int = 7) -> Connectome:
     r = np.concatenate(rows)
     c = np.concatenate(cols)
     v = np.concatenate(vals).astype(np.float32) * sign[c]
+    if extra_neurons > 0:
+        types += ["silent"] * extra_neurons
+        sides += [""] * extra_neurons
+        N += extra_neurons
+
     W = sparse.csc_matrix((v, (r, c)), shape=(N, N), dtype=np.float32)
 
     return Connectome(
@@ -141,5 +178,14 @@ def build_minifly(seed: int = 7) -> Connectome:
         sides=np.asarray(sides),
         superclass=None,
         body_ids=np.arange(N, dtype=np.int64),
-        meta={"synthetic": True, "grid": [GRID_ROWS, GRID_COLS], "seed": seed},
+        meta={
+            "synthetic": True,
+            "grid": [GRID_ROWS, GRID_COLS],
+            "seed": seed,
+            "pop_scale": pop_scale,
+            "syn_scale": syn_scale,
+            "p_scale": p_scale,
+            "extra_neurons": extra_neurons,
+            "normalize": normalize,
+        },
     )
