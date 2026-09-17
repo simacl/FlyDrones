@@ -181,18 +181,16 @@ flydrones expand --brain minicns --grow 160
 flydrones expand --brain data/malecns_brain.npz --grow 2000
 ```
 
-### After development: stay online
+### After development: hit a wall, dodge, ask again
 
-The pairing rule does not freeze when development ends. `examples/08_online.py`
-plays one life twice: frozen weights vs the same three-factor writes still on.
-Climb and loom keep reinforcing the motor pathways; a collision is a one-shot
-punish. Measured MiniCNS +80 after 6 pairing epochs
-([docs/growth/malecns_life.md](growth/malecns_life.md)): frozen walk stays
-43.1 Hz for the whole 12 s; online walk is 79.6 Hz after the first climb and
-158.3 Hz at the end.
+Development teaches how to drive the legs. `examples/08_online.py` then puts
+the animal in an arena. It walks, hits the north wall, dodges. Pose resets.
+If the hit and dodge kept writing, the next approach does not hit. If they
+were not written, it hits again. The event is not turned into a frozen lesson.
 
-Closed loop: `learn.online: true` in YAML. Same rule, collision / climb / escape
-as the teaching valence.
+Measured MiniCNS +80: first approach hits and dodges on both arms. Second
+approach hits if the wall event was not written, and does not hit if it was
+([docs/growth/malecns_life.md](growth/malecns_life.md)).
 
 ```bash
 python examples/08_online.py

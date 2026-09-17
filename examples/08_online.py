@@ -1,4 +1,4 @@
-"""After development: live, keep changing, or freeze.
+"""Hit a wall in the arena, dodge, ask if the next approach still hits.
 
 python examples/08_online.py
 flydrones expand --brain minicns --grow 80 --life --report docs/growth/malecns_life.md

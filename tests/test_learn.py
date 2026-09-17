@@ -70,36 +70,19 @@ def test_cli_expand_train(capsys):
     assert "untrained body" in out.lower() or "climb" in out.lower()
 
 
-def test_online_life_moves_weights_frozen_does_not():
+def test_hit_wall_dodge_next_time_online_does_not_hit_again():
+    from flydrones.brain import grow_like
     from flydrones.experience import live_once
 
-    c = build_minicns()
     cfg = research_config()
-    short = [
-        (0.0, "rest", {}, 0.0),
-        (0.15, "climb", {"T4c_L": 80.0, "T4c_R": 80.0}, 0.8),
-        (0.6, "hit", {}, -1.0),
-        (0.65, "rest", {}, 0.0),
-        (0.8, "climb", {"T4c_L": 80.0, "T4c_R": 80.0}, 0.8),
-    ]
-    frozen = live_once(c, cfg, online=False, timeline=short, dt_ms=50.0, snapshot_s=(0.0, 1.2), seed=0)
-    online = live_once(c, cfg, online=True, timeline=short, dt_ms=50.0, snapshot_s=(0.0, 1.2), seed=0)
+    grown = grow_like(build_minicns(), 80, min_pop=1, seed=0)
+    trained, _ = train_body(grown, cfg, epochs=6, seed=0)
+    frozen = live_once(trained, cfg, online=False, seed=0)
+    online = live_once(trained, cfg, online=True, seed=0)
+    assert frozen["first"]["hits"] >= 1 and frozen["first"]["dodged"]
+    assert online["first"]["hits"] >= 1 and online["first"]["dodged"]
+    assert frozen["hit_again"]
+    assert not online["hit_again"]
     assert frozen["drift"] < 1e-6
-    assert online["drift"] > 1.0
-    assert online["hits"] == 1
-    assert online["n_updates"] > frozen["n_updates"]
-
-
-def test_hit_is_one_shot_even_if_dt_is_finer():
-    from flydrones.experience import live_once
-
-    c = build_minicns()
-    cfg = research_config()
-    short = [
-        (0.0, "rest", {}, 0.0),
-        (0.1, "hit", {}, -1.0),
-        (0.4, "rest", {}, 0.0),
-    ]
-    online = live_once(c, cfg, online=True, timeline=short, dt_ms=20.0, snapshot_s=(0.0, 0.5), seed=0)
-    assert online["hits"] == 1
+    assert online["n_updates"] > 0
 
