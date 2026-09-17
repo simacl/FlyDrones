@@ -45,3 +45,21 @@ silent visual cells that had no leg boutons get some so the pairing has
 something to write. No intracellular dopamine cascade.
 
 Collision-triggered PPL1 on the drone is still a separate item.
+
+## After development: stay online
+
+Same life twice. Frozen stays put. Online keeps writing on climb/loom, and a hit punishes.
+
+| | climb→walk | climb→lift | loom→escape | weight drift |
+|---|---:|---:|---:|---:|
+| after development | 43.1 Hz | 106.4 Hz | 138.9 Hz | — |
+| frozen, whole life | 43.1 Hz | 106.4 Hz | 138.9 Hz | 0 |
+| online t=3s (after first climb) | 79.6 Hz | 129.6 Hz | 138.9 Hz | — |
+| online t=12s | **158.3 Hz** | 193.0 Hz | 177.8 Hz | 9365 |
+
+```bash
+python examples/08_online.py
+flydrones expand --brain minicns --grow 80 --life
+```
+
+Closed loop: `learn.online: true` in YAML. Collision punishes, climb/escape reward, same rule.

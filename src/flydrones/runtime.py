@@ -49,6 +49,12 @@ class Pilot:
         self.illusion = GestureIllusion()
         self.history: list[dict] = []
         self._t0 = None
+        self.learner = None
+        self._collisions_seen = int(getattr(drone, "collisions", 0) or 0)
+        if cfg.get("learn", {}).get("online"):
+            from .experience import OnlineLearner
+
+            self.learner = OnlineLearner(brain, eta=float(cfg.get("learn", {}).get("eta", 0.25)))
 
     def warmup(self, seconds: float, dt: float = 0.05) -> None:
         """Let the brain settle on the ground (still scene) and measure resting rates."""
@@ -81,6 +87,19 @@ class Pilot:
             self.drone.land()
         else:
             self.drone.send(cmd)
+        if self.learner is not None:
+            self.learner.observe(dt)
+            v = 0.0
+            col = int(getattr(self.drone, "collisions", 0) or 0)
+            if col > self._collisions_seen:
+                v = -1.0
+                self._collisions_seen = col
+            elif cmd.escape:
+                v = 0.25
+            elif cmd.throttle > 0.15:
+                v = 0.12
+            if v:
+                self.learner.reinforce(v)
         self.history.append({"t": t, "alt": tel.alt_m, "x": tel.x_m, "y": tel.y_m, "yaw": tel.yaw_deg, **{f"cmd_{k}": getattr(cmd, k) for k in ("throttle", "yaw", "forward")},
                              "escape": cmd.escape, **{f"hz_{k}": v for k, v in rates.items() if k.startswith("DN")}})
         return TickInfo(t, cam if cam is not None else frame, rates, raw, cmd, tel, g, self.illusion.mode if g is not None else "camera",

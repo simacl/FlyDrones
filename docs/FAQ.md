@@ -13,9 +13,9 @@ All of that is open in this repo.
 So anyone can run the demo in seconds without a 1.2 GB download. Two commands switch to MaleCNS.
 
 **Does it learn?**
-Yes. Pair a cue with a motor pathway and the rates change. Default research path
-trains scene-up onto lift and walking, and loom onto escape.
-`flydrones expand --grow 160`. [RESEARCH_MALECNS.md](RESEARCH_MALECNS.md).
+Yes. Development pairs a cue with motors. After that, `learn.online` keeps writing
+while the animal lives — climb/escape reward, collision punishes. Frozen weights
+are the control. `python examples/08_online.py`. [RESEARCH_MALECNS.md](RESEARCH_MALECNS.md).
 
 **Does adding neurons give the fly new skills or more intelligence?**
 Add cells like the **whole CNS**, train, then read motors. On MiniCNS, scene-up

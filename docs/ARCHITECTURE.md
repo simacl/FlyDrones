@@ -38,8 +38,9 @@ Code: [`runtime.py`](../src/flydrones/runtime.py).
 | `brain/rewire.py` | scale synapses, ablate, flip, reverse laterality, shuffle, grow_like | `ablate`, `grow_like`, `clone_neurons` |
 | `brain/minicns.py` | MaleCNS-named toy: claw-like PN→KC, MB + CX + T1–T3 legs + flight DN | `build_minicns` |
 | `brain/expand.py` | grow a compartment; optional motor-pool graft | `expand_compartment`, `graft_appendage` |
-| `brain/plasticity.py` | KC→MBON three-factor weight updates | `KCMbonSynapses` |
-| `learn.py` | train odor valence, evaluate MBON preference | `train_odor_valence`, `run_training_experiment` |
+| `brain/plasticity.py` | three-factor weight updates on existing synapses | `PathwaySynapses`, `KCMbonSynapses` |
+| `learn.py` | develop: grow, pair, read motors | `train_body`, `run_embodied_experiment` |
+| `experience.py` | online life after development (frozen vs still writing) | `OnlineLearner`, `run_online_experiment` |
 | `capacity.py` | frozen KC nearest-centroid (sidecar) + effector probe | `odor_capacity`, `probe_effectors` |
 | `brain/growth.py` | per-neuron census of a grown cohort (markdown + CSV) | `build_growth_report`, `write_growth_report` |
 | `viz/dashboard.py` | matplotlib dashboard, OpenCV window, GIF writer | `Dashboard` |

@@ -372,7 +372,7 @@ def cmd_expand(args) -> int:
                 bit += f" walk={v['walk_hz']:.1f}Hz"
             copy = f" copy_of={v['copy_of']} r={v['corr']:.2f}" if v.get("copy_of") else ""
             print(f"  {name:12s} {v['status']:10s}{copy}{bit}")
-    if args.train:
+    if args.train and not getattr(args, "life", False):
         print(f"\nGrow {extra_n} cells like the whole CNS, train, read the body…")
         exp = run_embodied_experiment(c, cfg, extra=extra_n, epochs=args.epochs, seed=args.seed, type_pats=type_pats)
         text_out = format_embodied_report(exp, title=f"MaleCNS growth+train: {c.name}")
@@ -384,12 +384,31 @@ def cmd_expand(args) -> int:
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(text_out, encoding="utf-8")
             print(f"\nreport -> {path}")
-    else:
+    elif not getattr(args, "life", False):
         snap = body_snapshot(c, cfg)
         print(
             f"untrained body: climb→lift {snap['climb_lift_hz']:.1f} Hz, "
             f"climb→walk {snap['climb_walk_hz']:.1f} Hz, loom→escape {snap['loom_escape_hz']:.1f} Hz"
         )
+    if getattr(args, "life", False):
+        from .brain import grow_like
+        from .experience import format_online_report, run_online_experiment
+
+        body = c
+        if extra_n:
+            body = grow_like(c, extra_n, min_pop=1, type_pats=type_pats, seed=args.seed)
+            print("after grow for life:", body.summary())
+        print("\nSame life twice: frozen vs online…")
+        life = run_online_experiment(body, cfg, develop=bool(args.train), epochs=args.epochs, seed=args.seed)
+        life_text = format_online_report(life, title=f"Online experience: {body.name}")
+        print(life_text)
+        if args.report:
+            from pathlib import Path as P
+
+            path = P(args.report)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(life_text, encoding="utf-8")
+            print(f"\nreport -> {path}")
     return 0
 
 
@@ -514,6 +533,7 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--epochs", type=int, default=8, help="pairing epochs")
     sp.add_argument("--seed", type=int, default=0)
     sp.add_argument("--report", help="write a markdown verdict")
+    sp.add_argument("--life", action="store_true", help="after development, replay a life frozen vs online")
     sp.set_defaults(func=cmd_expand)
     return p
 

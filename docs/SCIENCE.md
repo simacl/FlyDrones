@@ -181,6 +181,24 @@ flydrones expand --brain minicns --grow 160
 flydrones expand --brain data/malecns_brain.npz --grow 2000
 ```
 
+### After development: stay online
+
+The pairing rule does not freeze when development ends. `examples/08_online.py`
+plays one life twice: frozen weights vs the same three-factor writes still on.
+Climb and loom keep reinforcing the motor pathways; a collision is a one-shot
+punish. Measured MiniCNS +80 after 6 pairing epochs
+([docs/growth/malecns_life.md](growth/malecns_life.md)): frozen walk stays
+43.1 Hz for the whole 12 s; online walk is 79.6 Hz after the first climb and
+158.3 Hz at the end.
+
+Closed loop: `learn.online: true` in YAML. Same rule, collision / climb / escape
+as the teaching valence.
+
+```bash
+python examples/08_online.py
+flydrones expand --brain minicns --grow 80 --life
+```
+
 `flydrones circuit --compare` and `examples/04_rewire.py` run the same stimulus battery on several MiniFly variants:
 
 | change | what actually happens | MiniFly `--compare` (seed 7) |
@@ -241,7 +259,7 @@ animal to the ground.
 
 ## Known limitations
 
-- Point neurons: no dendrites, no gap junctions, no neuromodulator *dynamics*. Odor valence uses a rate-based KC→MBON three-factor rule; there is still no intracellular dopamine cascade and no collision-triggered PPL1 on the drone.
+- Point neurons: no dendrites, no gap junctions, no neuromodulator *dynamics*. Motor pathways and KC→MBON use a rate-based three-factor rule (development, then optional online). Teaching valence is a scalar, not an intracellular dopamine cascade or PPL1 spike train.
 - Motion vision computed by software instead of by the connectome's own early visual system.
 - A 5 cm drone camera and a fly's 360° compound eye see very different worlds.
 - Real flies fly at ~200 wingbeats per second with millisecond reflexes; the loop here runs at 20-50 Hz.

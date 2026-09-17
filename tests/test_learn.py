@@ -68,3 +68,38 @@ def test_cli_expand_train(capsys):
     out = capsys.readouterr().out
     assert "tail" in out.lower()
     assert "untrained body" in out.lower() or "climb" in out.lower()
+
+
+def test_online_life_moves_weights_frozen_does_not():
+    from flydrones.experience import live_once
+
+    c = build_minicns()
+    cfg = research_config()
+    short = [
+        (0.0, "rest", {}, 0.0),
+        (0.15, "climb", {"T4c_L": 80.0, "T4c_R": 80.0}, 0.8),
+        (0.6, "hit", {}, -1.0),
+        (0.65, "rest", {}, 0.0),
+        (0.8, "climb", {"T4c_L": 80.0, "T4c_R": 80.0}, 0.8),
+    ]
+    frozen = live_once(c, cfg, online=False, timeline=short, dt_ms=50.0, snapshot_s=(0.0, 1.2), seed=0)
+    online = live_once(c, cfg, online=True, timeline=short, dt_ms=50.0, snapshot_s=(0.0, 1.2), seed=0)
+    assert frozen["drift"] < 1e-6
+    assert online["drift"] > 1.0
+    assert online["hits"] == 1
+    assert online["n_updates"] > frozen["n_updates"]
+
+
+def test_hit_is_one_shot_even_if_dt_is_finer():
+    from flydrones.experience import live_once
+
+    c = build_minicns()
+    cfg = research_config()
+    short = [
+        (0.0, "rest", {}, 0.0),
+        (0.1, "hit", {}, -1.0),
+        (0.4, "rest", {}, 0.0),
+    ]
+    online = live_once(c, cfg, online=True, timeline=short, dt_ms=20.0, snapshot_s=(0.0, 0.5), seed=0)
+    assert online["hits"] == 1
+

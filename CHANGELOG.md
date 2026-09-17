@@ -8,8 +8,8 @@ the same kinds of neuron (MaleCNS 166k → 200k research path). Grown cells inhe
 columns, continue hemilineage birth order, and form new-to-new synapses onto already-born cells.
 `--grow-report` writes a markdown+CSV census of **every** new neuron (`docs/growth/`).
 MaleCNS-first: extra cells like the **whole CNS**, then train, then read motors
-(`examples/07_malecns_expand.py`, `docs/RESEARCH_MALECNS.md`). Frozen weights are an unread book.
-MiniFly remains the flight demo.
+(`examples/07_malecns_expand.py`). After development, the same rule stays on
+during a life (`examples/08_online.py`, `learn.online`): frozen vs still changing.
 Optional NeuroMechFly body: map DNg02 L/R onto FlyGym's walking CPG (`flydrones fly --drone flygym`,
 `examples/05_neuromechfly.py`). https://neuromechfly.org
 

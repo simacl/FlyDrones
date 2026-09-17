@@ -123,3 +123,8 @@ safety:
 control:
   hz: 20
   takeoff: true
+
+# Online three-factor writes during the closed loop (collision punishes, climb/escape reward).
+learn:
+  online: false
+  eta: 0.25

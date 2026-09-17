@@ -206,7 +206,7 @@ docs/index.html + docs/live/     the browser demo (three.js, JS port of the engi
 firmware/esp32_msp_bridge/   Arduino sketch: UDP -> MSP_SET_RAW_RC
 configs/     tello, crazyflie, mavlink SITL, esp32, malecns, neuromechfly
 docs/        GUIDE · HARDWARE · SCIENCE · ARCHITECTURE · CONNECTOME_DATA · SAFETY · FAQ · [growth](docs/growth/) · [MaleCNS expand](docs/RESEARCH_MALECNS.md)
-examples/    poke neurons, custom decoder, replay a video, grow/lesion/rewire MiniFly, NeuroMechFly descending map, grow real-like cells, MaleCNS train extra Kenyon cells
+examples/    poke neurons, custom decoder, replay a video, grow/lesion/rewire MiniFly, NeuroMechFly descending map, grow real-like cells, MaleCNS grow+train motors, then online life
 tests/       pytest suite (simulator, retina, decoder, safety, protocol, MaleCNS loader)
 tools/       export the browser brain, check the JS engine against Python
 ```
@@ -233,7 +233,8 @@ Read [docs/SAFETY.md](docs/SAFETY.md) before the first real flight.
 - [ ] Retinotopy from MaleCNS optic-lobe hex coordinates
 - [ ] PyTorch / CUDA backend for full-brain real time on a laptop GPU
 - [ ] Dopamine (PPL1) reinforcement on crashes, like DOOMFLY
-- [x] KC→MBON odor-valence training (`flydrones expand --grow-kc`)
+- [x] Grow the whole CNS, train onto motors (`examples/07_malecns_expand.py`)
+- [x] Online experience after development (`examples/08_online.py`, `learn.online`)
 - [ ] ROS 2 node
 - [ ] Onboard: brain core on a Raspberry Pi 5 carried by the drone
 
