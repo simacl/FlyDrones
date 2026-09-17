@@ -7,9 +7,9 @@ or shuffle addresses, and compare descending-neuron reflexes. See `examples/04_r
 the same kinds of neuron (MaleCNS 166k → 200k research path). Grown cells inherit retinotopic
 columns, continue hemilineage birth order, and form new-to-new synapses onto already-born cells.
 `--grow-report` writes a markdown+CSV census of **every** new neuron (`docs/growth/`).
-MaleCNS-first expansion: `flydrones expand --graft tail --graft extra_legs --grow-kc 160`
-asks whether extra cells can become a new organ or raise mushroom-body odor capacity
-(`examples/07_malecns_expand.py`, `docs/RESEARCH_MALECNS.md`). MiniFly remains the flight demo.
+MaleCNS-first: extra Kenyon cells, **then KC→MBON training**, then test odor valence
+(`examples/07_malecns_expand.py`, `docs/RESEARCH_MALECNS.md`). Frozen weights are an unread book.
+MiniFly remains the flight demo.
 Optional NeuroMechFly body: map DNg02 L/R onto FlyGym's walking CPG (`flydrones fly --drone flygym`,
 `examples/05_neuromechfly.py`). https://neuromechfly.org
 

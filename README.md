@@ -199,13 +199,14 @@ src/flydrones/
   runtime.py   the closed loop
   calibrate.py fit the read-out on your connectome
   circuit.py   stimulus battery for grow / lesion / rewire experiments
+  learn.py     KC→MBON training (unread book vs read book)
   viz/         live dashboard and GIF recorder
   cli.py       `flydrones ...`
 docs/index.html + docs/live/     the browser demo (three.js, JS port of the engine)
 firmware/esp32_msp_bridge/   Arduino sketch: UDP -> MSP_SET_RAW_RC
 configs/     tello, crazyflie, mavlink SITL, esp32, malecns, neuromechfly
 docs/        GUIDE · HARDWARE · SCIENCE · ARCHITECTURE · CONNECTOME_DATA · SAFETY · FAQ · [growth](docs/growth/) · [MaleCNS expand](docs/RESEARCH_MALECNS.md)
-examples/    poke neurons, custom decoder, replay a video, grow/lesion/rewire MiniFly, NeuroMechFly descending map, grow real-like cells, MaleCNS tail/legs/KC capacity
+examples/    poke neurons, custom decoder, replay a video, grow/lesion/rewire MiniFly, NeuroMechFly descending map, grow real-like cells, MaleCNS train extra Kenyon cells
 tests/       pytest suite (simulator, retina, decoder, safety, protocol, MaleCNS loader)
 tools/       export the browser brain, check the JS engine against Python
 ```
@@ -232,6 +233,7 @@ Read [docs/SAFETY.md](docs/SAFETY.md) before the first real flight.
 - [ ] Retinotopy from MaleCNS optic-lobe hex coordinates
 - [ ] PyTorch / CUDA backend for full-brain real time on a laptop GPU
 - [ ] Dopamine (PPL1) reinforcement on crashes, like DOOMFLY
+- [x] KC→MBON odor-valence training (`flydrones expand --grow-kc`)
 - [ ] ROS 2 node
 - [ ] Onboard: brain core on a Raspberry Pi 5 carried by the drone
 

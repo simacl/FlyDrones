@@ -1,13 +1,11 @@
-"""MaleCNS research path: new effectors vs more of the same vs more capacity.
+"""Grow existing MaleCNS compartments; optional motor-pool grafts.
 
-Two different operations, which must not be confused:
+``expand_compartment`` / ``grow_like`` resample types the connectome already
+has (Kenyon cells, EPG, T3_MN, …). That cannot invent a new organ, and it
+does not read the extra cells — train them with ``flydrones.learn``.
 
-* ``grow_like`` / ``expand_compartment`` resample types the connectome already
-  has (Kenyon cells, EPG, T3_MN, …). That cannot invent a tail.
-* ``graft_appendage`` inserts a **new cell type the fly never had**, wired from
-  existing drivers. That can add a motor pool for a tail or an extra leg pair.
-  Whether it is a *new ability* is a measured question: if the new pool is a
-  copy of DNp01 or of T3_MN, the animal gained a muscle, not a new behaviour.
+``graft_appendage`` is a leftover engineering probe (a new motor pool on an
+old command). It is not the MaleCNS research question.
 """
 
 from __future__ import annotations

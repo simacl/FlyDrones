@@ -161,18 +161,24 @@ birth index, in/out degree, new-to-new synapses, and actual pre/post cell types.
 distribution**. Use clone when you mean "another T4c like this one"; use grow when you mean
 "34k more neurons of the kinds this brain already has".
 
-### MaleCNS-first: new organs vs intelligence
+### MaleCNS-first: extra cells, then train
 
 Flight read-out is not the whole CNS. Further neuron-growth work uses MaleCNS compartments
-(mushroom body, central complex, VNC legs). See [RESEARCH_MALECNS.md](RESEARCH_MALECNS.md).
+(mushroom body, central complex, VNC). See [RESEARCH_MALECNS.md](RESEARCH_MALECNS.md).
 
-1. **Tail / extra legs.** `grow_like` cannot invent types the fly lacks. `flydrones expand --graft tail --graft extra_legs` inserts new motor pools innervated by `DNp01` or `T3_MN`. On MiniCNS the tail is a **copy of escape** (r=1 with the giant fiber); extra legs are a **copy of the hindleg**. That is an extra muscle, not a new ability.
-2. **More powerful / more intelligent.** Expanding Kenyon cells raised 4-odor nearest-centroid accuracy from 0.50 to 1.00 (pattern rank 3 → 17). That is sparse-coding capacity, not a learning rule. Dopamine plasticity remains on the roadmap.
+Extra Kenyon cells with frozen weights are an unread book. `flydrones expand --grow-kc 160`
+grows them, then trains KC→MBON (PPL1/PAM teaching signal) and reads `MBON01 − MBON04`.
+
+1. **New ability.** Pair DM1 with reward and DM4 with punishment. The untrained MBON has
+   no preference. After training it does. That association is the new skill — not a grafted organ.
+2. **More powerful after training.** The same pairing on a grown mushroom body. Extra cells
+   without training still fail. After training they can separate good vs bad more strongly.
+   Overlapping mixtures are not automatic general intelligence.
 
 ```bash
 python examples/07_malecns_expand.py
-flydrones expand --brain minicns --graft tail --graft extra_legs --grow-kc 160
-flydrones expand --brain data/malecns_brain.npz --graft tail --grow-kc 2000
+flydrones expand --brain minicns --grow-kc 160
+flydrones expand --brain data/malecns_brain.npz --grow-kc 2000
 ```
 
 `flydrones circuit --compare` and `examples/04_rewire.py` run the same stimulus battery on several MiniFly variants:
@@ -235,7 +241,7 @@ animal to the ground.
 
 ## Known limitations
 
-- Point neurons: no dendrites, no gap junctions, no neuromodulator dynamics, no plasticity.
+- Point neurons: no dendrites, no gap junctions, no neuromodulator *dynamics*. Odor valence uses a rate-based KC→MBON three-factor rule; there is still no intracellular dopamine cascade and no collision-triggered PPL1 on the drone.
 - Motion vision computed by software instead of by the connectome's own early visual system.
 - A 5 cm drone camera and a fly's 360° compound eye see very different worlds.
 - Real flies fly at ~200 wingbeats per second with millisecond reflexes; the loop here runs at 20-50 Hz.

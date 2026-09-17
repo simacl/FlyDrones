@@ -1,11 +1,10 @@
 """MiniCNS: a MaleCNS-shaped toy, not a flight-only cartoon.
 
 MiniFly only contains visual motion and flight descending neurons. Research
-questions about *new body parts* and *capacity / intelligence* need a
-connectome that already has a mushroom body, a heading circuit and walking
-motor pools — the compartments MaleCNS actually has. MiniCNS is that scaffold
-in a few hundred cells, using MaleCNS-like type names so the same operations
-run on a built ``malecns_brain.npz``.
+questions about *new skills after training* need a mushroom body, a heading
+circuit and walking motor pools — the compartments MaleCNS actually has.
+MiniCNS is that scaffold in a few hundred cells, using MaleCNS-like type names
+so the same operations run on a built ``malecns_brain.npz``.
 
 It is still not EM data.
 """
@@ -94,11 +93,16 @@ def build_minicns(seed: int = 3) -> Connectome:
         connect(g("T2_MN", s), g("T3_MN", s), 10, p=0.9)
         connect(g("DNg02", s), g("T1_MN", s), 2, p=0.3)
 
-    pns = np.concatenate([g("uPN_DM1"), g("uPN_DM2"), g("uPN_DM3"), g("uPN_DM4")])
+    gloms = [g("uPN_DM1"), g("uPN_DM2"), g("uPN_DM3"), g("uPN_DM4")]
     kcs = g("KCg-m")
-    connect(pns, kcs, 6, p=0.18)
-    connect(kcs, g("MBON01", "L"), 3, p=0.35)
-    connect(kcs, g("MBON04", "L"), 3, p=0.35)
+    # Claw-like: each Kenyon cell samples two glomeruli strongly, not a thin soup of all 40 PNs.
+    for kc in kcs:
+        claws = rng.choice(len(gloms), size=2, replace=False)
+        for gi in claws:
+            pre = rng.choice(gloms[gi], size=min(3, gloms[gi].size), replace=False)
+            connect(pre, np.array([kc]), 14, p=1.0, jitter=0.15)
+    connect(kcs, g("MBON01", "L"), 6, p=1.0, jitter=0.08)
+    connect(kcs, g("MBON04", "L"), 6, p=1.0, jitter=0.08)
     connect(g("PPL1-g1pedc", "L"), kcs, 2, p=0.2)
 
     r = np.concatenate(rows) if rows else np.zeros(0, dtype=np.int64)

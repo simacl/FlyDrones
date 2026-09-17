@@ -1,4 +1,4 @@
-"""MaleCNS expansion: new body parts vs Kenyon-cell capacity."""
+"""MaleCNS expansion: Kenyon cells and leftover graft probes."""
 
 from flydrones.brain import build_minicns, expand_compartment, graft_appendage, grow_like
 from flydrones.capacity import effector_verdict, odor_capacity, probe_effectors, research_config
@@ -57,7 +57,7 @@ def test_more_kenyon_cells_raise_pattern_rank():
 
 
 def test_cli_expand_graft(capsys):
-    assert main(["expand", "--brain", "minicns", "--graft", "tail", "--graft", "extra_legs"]) == 0
+    assert main(["expand", "--brain", "minicns", "--no-train", "--graft", "tail", "--graft", "extra_legs"]) == 0
     out = capsys.readouterr().out
     assert "tail" in out.lower()
-    assert "n_KC" in out or "Kenyon" in out
+    assert "n_KC" in out or "Kenyon" in out or "sidecar" in out.lower()

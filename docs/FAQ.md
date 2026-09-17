@@ -13,13 +13,18 @@ All of that is open in this repo.
 So anyone can run the demo in seconds without a 1.2 GB download. Two commands switch to MaleCNS.
 
 **Does it learn?**
-Not yet. The connectome weights are fixed. Dopamine-based plasticity (as in DOOMFLY) is on the roadmap.
+Yes, at mushroom-body KC→MBON synapses. Pair an odor with reward or punishment
+and the MBON readout (`MBON01 − MBON04`) acquires a preference the untrained
+wiring did not have. Extra Kenyon cells without that pairing still do nothing
+useful — an unread book. Collision-triggered PPL1 on the drone is still on the
+roadmap. `flydrones expand --grow-kc 160`. [RESEARCH_MALECNS.md](RESEARCH_MALECNS.md).
 
-**Does adding neurons give the fly a tail, extra legs, or more intelligence?**
-`grow_like` cannot invent organs the fly lacks. `flydrones expand --graft tail --graft extra_legs`
-adds new motor pools on old commands (escape / hindleg copies). `--grow-kc` raises mushroom-body
-odor capacity, not general intelligence. MaleCNS-first from here: `flydrones expand --brain data/malecns_brain.npz`
-or `--brain minicns` until the 1.2 GB download is built. [RESEARCH_MALECNS.md](RESEARCH_MALECNS.md).
+**Does adding neurons give the fly new skills or more intelligence?**
+After **training**, extra Kenyon cells can learn an odor preference the original
+connectome was not born with, and they can separate good vs bad more strongly.
+They do not sprout organs. `--graft tail` is a leftover motor-pool probe, not
+the research question. MaleCNS-first: `flydrones expand --brain data/malecns_brain.npz`
+or `--brain minicns`. [RESEARCH_MALECNS.md](RESEARCH_MALECNS.md).
 
 **Can I grow MaleCNS from 166k to 200k real cells?**
 Not from EM: that volume is already complete. `flydrones circuit --grow 34000 --brain data/malecns_brain.npz`

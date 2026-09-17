@@ -1,59 +1,62 @@
-# MaleCNS research: new organs vs more intelligence
+# MaleCNS research: extra cells, then train them
 
 From this point the growth work is **MaleCNS-first**. MiniFly remains the flight demo.
 MiniCNS (`build_minicns`, type names aligned with MaleCNS) is the unit-test stand-in
 until `data/malecns_brain.npz` exists.
 
+Extra neurons with frozen weights are an **unread book**. This path trains
+KC→MBON synapses (PPL1/PAM teaching signal), then asks the mushroom body itself
+— `MBON01 − MBON04` — not a sidecar classifier on Kenyon-cell rates.
+
 ```bash
 flydrones download malecns && flydrones build-brain --out data/malecns_brain.npz
-flydrones expand --brain data/malecns_brain.npz --graft tail --graft extra_legs --grow-kc 2000 --report docs/growth/malecns_expand.md
+flydrones expand --brain data/malecns_brain.npz --grow-kc 2000 --report docs/growth/malecns_train.md
 # until the 1.2 GB download is present:
-flydrones expand --brain minicns --graft tail --graft extra_legs --grow-kc 160
+flydrones expand --brain minicns --grow-kc 160
 python examples/07_malecns_expand.py
 ```
 
-Measured MiniCNS run: [docs/growth/malecns_expand.md](growth/malecns_expand.md).
+Measured MiniCNS run: [docs/growth/malecns_train.md](growth/malecns_train.md).
 
-## Question 1 — can extra neurons become a tail or two extra legs?
+## Question 1 — can extra neurons become a skill the original did not have?
 
-A real fly has no tail and six legs. **Resampling existing MaleCNS types cannot invent those organs.**
-`grow_like(+100)` left `TailMN` and `LegMN_A3` **absent**.
+Yes, after training: **odor valence**. Pair DM1 with reward and DM4 with punishment.
+The connectome is not born knowing which smell is food. That association is the new
+ability. (A tail or two extra legs were examples of *functions*, not organs to sprout.)
 
-What *can* be done is **grafting**: insert a new motor pool the connectome never had, and innervate it
-from existing drivers.
-
-| graft | driver | MiniCNS result |
-|---|---|---|
-| tail (`TailMN` ×8) | giant fiber `DNp01` | **coupled** to DNp01 (r=1.00). Loom 29.8 Hz, climb 0. The tail flicks when the fly already escapes. Extra muscle, not a new behaviour. |
-| extra legs (`LegMN_A3` ×4 per side) | hindleg `T3_MN` | **coupled** to T3 (r=1.00). Silent in flight; **walk 214 Hz**. Serial homology: a seventh/eighth leg that copies the last segment. |
-
-An independent new ability would require a **new internal state** (new descending type with its own sensory drive), not a muscle on an old command. Status `distinct` is reserved for that; it did not occur.
-
-## Question 2 — can extra neurons make the brain more powerful or more intelligent?
-
-Not by adding T4 or DNg02. Intelligence-related capacity in this CNS lives in the **mushroom body**
-(Kenyon cells, MBON, PPL1/PAM) and, for navigation, the **central complex** (EPG, …).
-
-| condition | n_KC | odor nearest-centroid accuracy | KC pattern rank |
+| condition | n_KC | MBON accuracy | MBON margin |
 |---|---:|---:|---:|
-| MiniCNS baseline | 80 | 0.50 | 3 |
-| `grow_like` +100 (includes some KC) | 106 | 1.00 | 19 |
-| `expand_compartment kenyon` +160 | 240 | 1.00 | 17 |
+| MiniCNS, untrained | 80 | 0.00 | 0.0 Hz |
+| MiniCNS, trained | 80 | **1.00** | 37.5 Hz |
+| +160 KC, untrained | 240 | 0.25 | −7.5 Hz (unread book) |
+| +160 KC, trained | 240 | **1.00** | **50.0 Hz** |
 
-More Kenyon cells raised odor-pattern rank and the linear classifier went from chance to ceiling
-on this 4-glomerulus toy. That is **representational capacity**, not general intelligence:
+On overlapping mixtures both brains reach accuracy 1.00 after training; extra Kenyon
+cells widen the margin (67.1 vs 58.8 Hz). Extra cells without the pairing still fail.
 
-- there is still no dopamine learning rule in the LIF (roadmap: PPL1 → KC→MBON plasticity)
-- expanding random visual cells does not give this gain
-- a 166k MaleCNS already has ~2k KCs; growing more is a testable capacity curve on the real types
+`grow_like` / `--grow-kc` only adds cells of types MaleCNS already has. It cannot
+invent a new body part. The new *skill* is written at existing KC→MBON boutons.
 
-## Two operations (do not mix them)
+## Question 2 — can extra neurons make the brain more powerful after training?
 
-| | `grow_like` / `--grow-kc` | `graft_appendage` / `--graft` |
-|---|---|---|
-| cell types | only types MaleCNS already has | **new** types (`TailMN`, `LegMN_A3`) |
-| can make a tail | no | yes, as a muscle |
-| can raise odor capacity | yes, if you grow KC | no |
-| biology | statistical neurogenesis | evolutionary / engineering graft |
+Only if you train them. More Kenyon cells raise the rank of the odor map
+(sparse coding). Training is what spends that rank at the MBON. Extra cells
+without the pairing step do not.
 
-On a built MaleCNS `.npz` the same CLI applies: `--grow-kc` matches `^KC`, `--graft tail` still inserts `TailMN` driven by `DNp01`.
+On MiniCNS, the same 2-odor pairing produces a **larger MBON margin** with extra
+Kenyon cells. Overlapping mixtures are a separate test: extra cells are not
+automatic general intelligence, and they do not always win a harder set.
+
+The frozen KC nearest-centroid number is a human-side probe. It is not the fly
+having learned.
+
+## Rule used
+
+Rate-based three-factor plasticity at existing KC→MBON synapses:
+
+- reward (PAM-like): potentiate KC→MBON01 (approach), depress KC→MBON04 (avoid)
+- punish (PPL1-like): the opposite
+- only boutons that already exist move; signs stay excitatory
+- the LIF has no intracellular dopamine cascade — PPL1/PAM are the teaching label
+
+Collision-triggered PPL1 on the drone is still a separate roadmap item.

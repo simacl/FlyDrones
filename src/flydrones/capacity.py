@@ -1,12 +1,7 @@
-"""Probes for grafted effectors and mushroom-body capacity.
+"""Probes for mushroom-body capacity and leftover effector grafts.
 
-These measurements answer the two MaleCNS research questions without pretending
-the drone stick is the whole brain.
-
-1. Novel ability: does a grafted TailMN / LegMN_A3 do something *other* than
-   copy an existing descending or leg-motor command?
-2. More powerful / more intelligent: does expanding Kenyon cells raise the
-   linear separability of odor patterns? (Capacity, not general intelligence.)
+Training lives in ``learn.py``. ``odor_capacity`` is the *unread book*: a
+nearest-centroid classifier on frozen KC rates, not a skill the fly learned.
 """
 
 from __future__ import annotations
@@ -66,6 +61,9 @@ def research_config(path=None) -> dict:
     cfg["brain"].setdefault("bias", {})
     cfg["brain"]["bias"].setdefault("DNg02_L", 8.0)
     cfg["brain"]["bias"].setdefault("DNg02_R", 8.0)
+    # MBONs sit near threshold so KC→MBON learning is a rate change, not a silent-to-spike jump.
+    cfg["brain"]["bias"].setdefault("MBON01", 8.0)
+    cfg["brain"]["bias"].setdefault("MBON04", 8.0)
     return cfg
 
 
@@ -159,8 +157,8 @@ def odor_capacity(
 
     Four glomerulus channels (DM1–DM4). Each trial is one-hot. A nearest-centroid
     classifier on the KC rate vector is fit on half the repeats and tested on
-    the rest. More KCs raise capacity when the expansion is sparse; they do not
-    by themselves add a learning rule.
+    the rest. This is a sidecar probe on frozen weights — an unread book.
+    Training that actually writes KC→MBON is ``learn.train_odor_valence``.
     """
     import warnings
 

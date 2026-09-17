@@ -342,9 +342,10 @@ def _resolve_research_brain(source: str | None):
 
 
 def cmd_expand(args) -> int:
-    """MaleCNS research: graft a tail / extra legs, or grow Kenyon-cell capacity."""
+    """MaleCNS research: train extra Kenyon cells, then test new skills."""
     from .brain import expand_compartment, graft_appendage, grow_like
-    from .capacity import effector_verdict, odor_capacity, probe_effectors, research_config
+    from .capacity import effector_verdict, probe_effectors, research_config
+    from .learn import format_training_report, run_training_experiment
 
     print(BANNER)
     cfg = research_config(getattr(args, "config", None))
@@ -359,57 +360,52 @@ def cmd_expand(args) -> int:
                 pats.append(raw if any(ch in raw for ch in ".*+?^$[]") else f"^{raw}")
         c = grow_like(c, int(args.grow), type_pats=pats, min_pop=1 if pats else 5)
         print("after grow_like:", c.summary())
-    if args.grow_kc:
-        c = expand_compartment(c, "kenyon", int(args.grow_kc), seed=args.seed)
-        print("after Kenyon expansion:", c.summary(), "KC", int((np.char.find(c.types.astype(str), "KC") >= 0).sum()))
+    extra_kc = int(args.grow_kc or 0)
+    if extra_kc:
+        grown = expand_compartment(c, "kenyon", extra_kc, seed=args.seed)
+        print("after Kenyon expansion:", grown.summary(), "KC", int((np.char.find(grown.types.astype(str), "KC") >= 0).sum()))
     if args.graft:
+        from .capacity import odor_capacity
+
+        grafted = c
         for kind in args.graft:
-            c = graft_appendage(c, kind, seed=args.seed)
-            print(f"after graft {kind}:", c.summary())
-    rates = probe_effectors(c, cfg)
-    verdict = effector_verdict(c, rates)
-    print("\n1. New ability (grafted effectors)")
-    for name, v in verdict.items():
-        extra = f" loom={v.get('loom_hz', 0):.1f}Hz climb={v.get('climb_hz', 0):.1f}Hz"
-        if "walk_hz" in v:
-            extra += f" walk={v['walk_hz']:.1f}Hz"
-        copy = f" copy_of={v['copy_of']} r={v['corr']:.2f}" if v.get("copy_of") else ""
-        print(f"  {name:12s} {v['status']:10s}{copy}{extra}")
-        print(f"               {v['note']}")
-    cap = odor_capacity(c, cfg, seed=args.seed)
-    print("\n2. Capacity / intelligence (Kenyon cells, odor nearest-centroid)")
-    print(f"  n_KC={cap.get('n_kc')}  accuracy={cap.get('accuracy')}  pattern_rank={cap.get('pattern_rank')}")
-    if args.report:
+            grafted = graft_appendage(grafted, kind, seed=args.seed)
+            print(f"after graft {kind}:", grafted.summary())
+        rates = probe_effectors(grafted, cfg)
+        verdict = effector_verdict(grafted, rates)
+        print("\n(graft is not the research question; kept as a motor-pool probe)")
+        for name, v in verdict.items():
+            extra = f" loom={v.get('loom_hz', 0):.1f}Hz climb={v.get('climb_hz', 0):.1f}Hz"
+            if "walk_hz" in v:
+                extra += f" walk={v['walk_hz']:.1f}Hz"
+            copy = f" copy_of={v['copy_of']} r={v['corr']:.2f}" if v.get("copy_of") else ""
+            print(f"  {name:12s} {v['status']:10s}{copy}{extra}")
+        cap = odor_capacity(grafted, cfg, seed=args.seed)
+        print(f"  sidecar KC classifier n_KC={cap.get('n_kc')} accuracy={cap.get('accuracy')}")
+    if args.train:
+        print("\nTraining KC→MBON (unread book vs read book)…")
+        exp = run_training_experiment(
+            c,
+            cfg,
+            extra_kc=extra_kc or 160,
+            epochs=args.epochs,
+            seed=args.seed,
+        )
+        text = format_training_report(exp, title=f"MaleCNS training: {c.name}")
+        print(text)
+        if args.report:
+            from pathlib import Path
+
+            path = Path(args.report)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(text, encoding="utf-8")
+            print(f"\nreport -> {path}")
+    elif args.report and args.graft:
         from pathlib import Path
 
         path = Path(args.report)
         path.parent.mkdir(parents=True, exist_ok=True)
-        lines = [
-            f"# MaleCNS expansion: {c.name}",
-            "",
-            c.summary(),
-            "",
-            "## 1. Novel effectors",
-            "",
-        ]
-        for name, v in verdict.items():
-            lines += [f"### {name}", "", f"- status: **{v['status']}**", f"- {v['note']}", ""]
-            if v.get("copy_of"):
-                lines.append(f"- copies `{v['copy_of']}` (r={v['corr']:.2f})")
-            lines.append(f"- loom {v.get('loom_hz', 0):.1f} Hz, climb {v.get('climb_hz', 0):.1f} Hz")
-            lines.append("")
-        lines += [
-            "## 2. Kenyon-cell capacity",
-            "",
-            f"- n_KC: {cap.get('n_kc')}",
-            f"- odor accuracy: {cap.get('accuracy')}",
-            f"- pattern rank: {cap.get('pattern_rank')}",
-            "",
-            "grow_like of existing types cannot invent TailMN. graft_appendage can add a muscle that copies DNp01 or T3_MN.",
-            "More KCs raise odor-pattern rank/accuracy; they are not general intelligence.",
-            "",
-        ]
-        path.write_text("\n".join(lines), encoding="utf-8")
+        path.write_text("# graft probe (no training)\n", encoding="utf-8")
         print(f"\nreport -> {path}")
     return 0
 
@@ -523,13 +519,16 @@ def build_parser() -> argparse.ArgumentParser:
 
     sp = sub.add_parser(
         "expand",
-        help="MaleCNS research: graft a tail/extra legs, or grow Kenyon-cell capacity",
+        help="MaleCNS research: grow Kenyon cells, train KC→MBON, test new odor skills",
     )
     common(sp)
-    sp.add_argument("--graft", action="append", choices=["tail", "extra_legs"], help="new motor pool the fly never had (repeatable)")
-    sp.add_argument("--grow", type=int, help="grow N cells by resampling existing types (cannot invent a tail)")
+    sp.add_argument("--graft", action="append", choices=["tail", "extra_legs"], help="legacy motor-pool probe (not the research question)")
+    sp.add_argument("--grow", type=int, help="grow N cells by resampling existing types")
     sp.add_argument("--grow-types", dest="grow_types", help="restrict --grow, comma-separated")
-    sp.add_argument("--grow-kc", type=int, help="grow N extra Kenyon cells (capacity / intelligence probe)")
+    sp.add_argument("--grow-kc", type=int, help="grow N extra Kenyon cells, then train them")
+    sp.add_argument("--train", dest="train", action="store_true", default=True, help="train KC→MBON (default)")
+    sp.add_argument("--no-train", dest="train", action="store_false", help="skip training (unread-book baseline only)")
+    sp.add_argument("--epochs", type=int, default=8, help="pairing epochs for KC→MBON")
     sp.add_argument("--seed", type=int, default=0)
     sp.add_argument("--report", help="write a markdown verdict")
     sp.set_defaults(func=cmd_expand)
