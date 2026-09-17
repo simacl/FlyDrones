@@ -13,9 +13,9 @@ All of that is open in this repo.
 So anyone can run the demo in seconds without a 1.2 GB download. Two commands switch to MaleCNS.
 
 **Does it learn?**
-Development teaches how to drive the legs. After that the animal uses the body
-in an environment. Contact, halt and unload go into the brain; PPL1 judges.
-Compare early vs late usage. `python examples/08_online.py`.
+Development teaches how to drive the legs. After that the three-factor rule
+stays on every tick. Body channels enter the brain; PPL1 judges. Same rule
+for every scene. Count writes in both halves. `python examples/08_online.py`.
 [RESEARCH_MALECNS.md](RESEARCH_MALECNS.md).
 
 **Does adding neurons give the fly new skills or more intelligence?**

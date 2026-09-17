@@ -1,8 +1,8 @@
 """After development: keep using the body; experience keeps writing.
 
-Development teaches how to drive the legs. This module puts the animal in an
-environment and leaves the three-factor rule on. Teaching valence comes from
-PPL1 reading body channels (contact, halt, unload), not a programmed hit flag.
+Development teaches how to drive the legs. This module leaves the three-factor
+rule on every tick. Teaching valence comes from whatever body channels the
+brain already has. There is no per-scene branch.
 """
 
 from __future__ import annotations
@@ -30,7 +30,7 @@ WALL = 0.02
 
 
 def neural_verdict(rates: dict[str, float], rest: dict[str, float] | None = None) -> float:
-    """Teaching factor from the brain's own cells, not a Python hit flag."""
+    """Teaching factor from the brain's own cells. Same mix for every scene."""
 
     def ch(*names: str) -> float:
         s = 0.0
@@ -44,13 +44,12 @@ def neural_verdict(rates: dict[str, float], rest: dict[str, float] | None = None
     md = ch("mdIV_L", "mdIV_R")
     chd = ch("chordotonal_L", "chordotonal_R")
     unl = ch("unloading")
-    if md + unl < 20.0:
-        return 0.0
+    loom = 0.45 * ch("LPLC2_L", "LPLC2_R")
     pain = ch("PPL1") + 0.5 * md
     halt = 0.4 * chd
     avoid = ch("MBON04")
     relief = 0.9 * unl
-    return float(np.tanh((relief - pain - halt - avoid) / 90.0))
+    return float(np.tanh((relief - pain - halt - avoid - loom) / 70.0))
 
 
 class OnlineLearner:
@@ -93,8 +92,8 @@ class OnlineLearner:
             x = counts[loc.pre].astype(np.float64)
             self.trace[i] = (1.0 - a) * self.trace[i] + a * x
 
-    def reinforce(self, valence: float, kind: str = "all") -> float:
-        if not self.locs or abs(valence) < 0.06 or self.eta == 0.0:
+    def reinforce(self, valence: float, kind: str = "all", dt: float = 1.0) -> float:
+        if abs(valence) < 0.04 or self.eta == 0.0 or dt <= 0:
             self.last_valence = float(valence)
             return 0.0
         if kind == "walk":
@@ -107,10 +106,11 @@ class OnlineLearner:
             return 0.0
         wrote = 0.0
         ids = {id(loc) for loc in wanted}
+        step = self.eta * float(dt)
         for i, loc in enumerate(self.locs):
             if id(loc) not in ids:
                 continue
-            wrote += loc.update(self.trace[i], valence, self.eta)
+            wrote += loc.update(self.trace[i], valence, step)
             loc.commit(self.brain.connectome, self.brain.net)
         self.n_updates += 1
         self.last_valence = float(valence)
@@ -211,11 +211,13 @@ class Body:
 def _usage(log: list[dict[str, Any]], t0: float, t1: float) -> dict[str, float]:
     rows = [r for r in log if t0 - 1e-9 <= r["t"] < t1 - 1e-9]
     if not rows:
-        return {"contacts": 0.0, "walk": 0.0, "edge": 0.0, "seconds": 0.0}
+        return {"contacts": 0.0, "walk": 0.0, "edge": 0.0, "writes": 0.0, "ticks": 0.0, "seconds": 0.0}
     return {
         "contacts": float(sum(1 for r in rows if r["contacted"])),
         "walk": float(np.mean([r["walk"] for r in rows])),
         "edge": float(np.mean([1.0 if r["edge"] < 0.12 else 0.0 for r in rows])),
+        "writes": float(sum(1 for r in rows if r["wrote"])),
+        "ticks": float(len(rows)),
         "seconds": float(rows[-1]["t"] - rows[0]["t"] + 1e-9),
     }
 
@@ -251,9 +253,11 @@ def live_once(
         stim = body.senses(speed, prev_speed, hit, away)
         rates = brain.tick(stim, dt_ms)
         learner.observe(dt)
+        n0 = learner.n_updates
         v = neural_verdict(rates, rest)
         if online:
-            learner.reinforce(v)
+            learner.reinforce(v, dt=dt)
+        wrote = learner.n_updates > n0
         prev_speed = speed
         hit, away = body.step(rates, dt)
         speed = body.path[-1][2] if body.path else 0.0
@@ -269,6 +273,7 @@ def live_once(
                 "edge": body.edge_dist,
                 "verdict": v,
                 "ppl1": float(rates.get("PPL1", 0.0)),
+                "wrote": wrote,
             }
         )
         t += dt
@@ -287,7 +292,9 @@ def live_once(
         "verdict_min": float(min((row["verdict"] for row in log), default=0.0)),
         "ppl1_max": float(max((row["ppl1"] for row in log), default=0.0)),
         "path": log[:: max(1, len(log) // 40)],
-        "usage_shifted": bool(late["contacts"] + 1e-9 < early["contacts"] or abs(late["walk"] - early["walk"]) > 2.0),
+        "writes_early": int(early["writes"]),
+        "writes_late": int(late["writes"]),
+        "continuous": bool(early["writes"] > 0 and late["writes"] > 0),
     }
 
 
@@ -322,22 +329,22 @@ def format_online_report(exp: dict[str, Any], title: str | None = None) -> str:
         return [
             f"## {tag}",
             "",
-            f"- 前半：接触 {a['contacts']:.0f}，走 {a['walk']:.1f} Hz，贴边 {a['edge']:.2f}",
-            f"- 后半：接触 {b['contacts']:.0f}，走 {b['walk']:.1f} Hz，贴边 {b['edge']:.2f}",
-            f"- 用法变了：{run['usage_shifted']}；判定最低 {run['verdict_min']:.2f}；PPL1 最高 {run['ppl1_max']:.1f}",
+            f"- 前半写入 {a['writes']:.0f}/{a['ticks']:.0f} 拍，后半写入 {b['writes']:.0f}/{b['ticks']:.0f} 拍，漂移 {run['drift']:.1f}",
+            f"- 前半走 {a['walk']:.1f} Hz，后半走 {b['walk']:.1f} Hz",
+            f"- 整段都在写：{run['continuous']}",
             "",
         ]
 
     fr, on = exp["frozen"], exp["online"]
     lines = [
-        f"# {title or '经验有没有改用法'}",
+        f"# {title or '在线持续写入'}",
         "",
-        "发育只教会怎么动腿。放到环境里用。痛、急停、卸力进脑子，PPL1 自己判定。",
-        "看前半和后半用法一不一样。程序不写 −1。",
+        "发育只教会怎么动腿。规则全程开着，不按场景分写。",
+        "身体有哪些通路就进哪些信号，PPL1 判定。看前半和后半都有没有写。程序不写 −1。",
         "",
         *arm("没写进去", fr),
         *arm("当场写", on),
-        "当场写的后半用法变了。" if on["usage_shifted"] and not fr["usage_shifted"] else "当场写的后半和没写的对不上。",
+        "当场写的前半和后半都在写。" if on["continuous"] and not fr["continuous"] else "写入没有贯穿整段。",
         "",
     ]
     return "\n".join(lines)

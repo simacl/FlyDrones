@@ -181,16 +181,16 @@ flydrones expand --brain minicns --grow 160
 flydrones expand --brain data/malecns_brain.npz --grow 2000
 ```
 
-### After development: experience changes usage
+### After development: experience keeps writing
 
-Development teaches how to drive the legs. `examples/08_online.py` then puts
-the animal in an environment. Contact (mdIV), halt (chordotonal), loom (LPLC2)
-and unload enter the brain. PPL1 supplies the teaching factor — there is no
-`if hit: −1`. Compare the first half of a stretch with the second.
+Development teaches how to drive the legs. `examples/08_online.py` then leaves
+the three-factor rule on every tick. Body channels the brain already has
+(mdIV, chordotonal, LPLC2, unloading) enter PPL1. There is no per-scene
+branch and no `if hit: −1`. The readout is whether both halves of a stretch
+received writes.
 
-Measured MiniCNS +80 (340 cells): frozen usage stays (contacts 2→3, walk
-12.3→11.4 Hz). Online usage shifts (contacts 2→1, walk 11.1→6.1 Hz)
-([docs/growth/malecns_life.md](growth/malecns_life.md)).
+Measured MiniCNS +80 (340 cells): frozen writes 0/80 then 0/80. Online writes
+80/80 then 80/80 ([docs/growth/malecns_life.md](growth/malecns_life.md)).
 
 ```bash
 python examples/08_online.py

@@ -70,7 +70,7 @@ def test_cli_expand_train(capsys):
     assert "untrained body" in out.lower() or "climb" in out.lower()
 
 
-def test_experience_changes_usage_when_writing():
+def test_online_writes_through_both_halves():
     from flydrones.brain import grow_like
     from flydrones.experience import live_once
 
@@ -79,16 +79,13 @@ def test_experience_changes_usage_when_writing():
     trained, _ = train_body(grown, cfg, epochs=6, seed=0)
     frozen = live_once(trained, cfg, online=False, seed=0)
     online = live_once(trained, cfg, online=True, seed=0)
-    assert frozen["hits"] >= 1
-    assert online["hits"] >= 1
+    assert frozen["n_updates"] == 0
     assert frozen["drift"] < 1e-6
-    assert online["n_updates"] > 0
-    assert online["ppl1_max"] > 5.0
-    assert online["verdict_min"] < -0.15
-    assert online["usage_shifted"]
-    assert not frozen["usage_shifted"]
-    assert online["late"]["walk"] > 1.0
-    assert online["late"]["contacts"] < frozen["late"]["contacts"]
+    assert not frozen["continuous"]
+    assert online["writes_early"] > 0.5 * online["early"]["ticks"]
+    assert online["writes_late"] > 0.5 * online["late"]["ticks"]
+    assert online["continuous"]
+    assert online["drift"] > 1.0
 
 
 def test_verdict_comes_from_pain_cells_not_a_minus_one():

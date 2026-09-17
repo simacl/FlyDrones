@@ -15,7 +15,7 @@
 ## 0.3
 - [ ] PyTorch / CUDA backend, full MaleCNS in real time on a laptop GPU
 - [x] KC→MBON three-factor plasticity (PPL1/PAM teaching signal on odor valence)
-- [x] Experience changes usage after development (`examples/08_online.py`)
+- [x] Experience keeps writing after development (`examples/08_online.py`)
 - [ ] Dopamine (PPL1) punishment on collisions
 - [x] MaleCNS-first: extra cells like the whole CNS, train, read motors (`flydrones expand`)
 - [ ] Drive early vision (L1-L3, Mi1, Tm3) from pixels instead of software optic flow

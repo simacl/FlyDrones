@@ -25,7 +25,7 @@ def main() -> None:
     cfg = research_config()
     grown = grow_like(base, extra, min_pop=1, seed=0)
     exp = run_online_experiment(grown, cfg, develop=True, epochs=6, seed=0)
-    text = format_online_report(exp, title=f"Online experience ({grown.name})")
+    text = format_online_report(exp, title=f"在线持续写入 ({grown.name})")
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(text, encoding="utf-8")
     print(text)

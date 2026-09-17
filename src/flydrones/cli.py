@@ -398,9 +398,9 @@ def cmd_expand(args) -> int:
         if extra_n:
             body = grow_like(c, extra_n, min_pop=1, type_pats=type_pats, seed=args.seed)
             print("after grow for life:", body.summary())
-        print("\nEnvironment: use the body, see if experience changes usage…")
+        print("\nEnvironment: rule stays on; count writes in both halves…")
         life = run_online_experiment(body, cfg, develop=bool(args.train), epochs=args.epochs, seed=args.seed)
-        life_text = format_online_report(life, title=f"Online experience: {body.name}")
+        life_text = format_online_report(life, title=f"在线持续写入: {body.name}")
         print(life_text)
         if args.report:
             from pathlib import Path as P

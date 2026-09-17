@@ -46,19 +46,19 @@ something to write. No intracellular dopamine cascade.
 
 Collision-triggered PPL1 on the drone is still a separate item.
 
-## 经验有没有改用法
+## 经验有没有持续写入
 
-发育只教会怎么动腿。放到环境里用。痛、急停、卸力进脑子，PPL1 自己判定。
-看前半和后半用法一不一样。
+发育只教会怎么动腿。规则全程开着，不按场景分写。
+身体有哪些通路就进哪些信号，PPL1 自己判定。看前半和后半都有没有写。
 
-| | 前半接触 / 走 | 后半接触 / 走 | 用法变了 |
+| | 前半写入 | 后半写入 | 贯穿整段 |
 |---|---|---|---|
-| 没写进去 | 2 / 12.3 Hz | 3 / 11.4 Hz | 否 |
-| 当场写 | 2 / 11.1 Hz | 1 / 6.1 Hz | 是 |
+| 没写进去 | 0/80 | 0/80 | 否 |
+| 当场写 | 80/80 | 80/80 | 是 |
 
 ```bash
 python examples/08_online.py
 flydrones expand --brain minicns --grow 80 --life
 ```
 
-闭环：`learn.online: true`。身体多路信号进脑子，PPL1 判定，不在程序里写惩罚。
+闭环：`learn.online: true`。同一套规则。程序不写 −1。
