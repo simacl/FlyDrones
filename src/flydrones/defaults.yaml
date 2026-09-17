@@ -123,3 +123,8 @@ safety:
 control:
   hz: 20
   takeoff: true
+
+# Collision writes during the closed loop. Climb is not a lesson.
+learn:
+  online: false
+  eta: 0.35

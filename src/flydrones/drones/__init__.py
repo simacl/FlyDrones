@@ -22,6 +22,10 @@ def make_drone(kind: str, **kw) -> Drone:
         from .udp_bridge import UDPBridgeDrone
 
         return UDPBridgeDrone(**kw)
+    if kind in ("flygym", "neuromechfly", "nmf"):
+        from .flygym import FlyGymDrone
+
+        return FlyGymDrone(**kw)
     raise ValueError(f"unknown drone backend: {kind}")
 
 

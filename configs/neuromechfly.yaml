@@ -1,0 +1,20 @@
+# NeuroMechFly / FlyGym body. Units: FlyGym is millimetres; telemetry is converted
+# to metres. The safety floor of 0.3 m would pin a 1 mm fly to the ground, so it
+# is disabled here. Walking has no altitude hold: cruise becomes forward speed.
+#
+#   pip install 'flygym @ git+https://github.com/NeLy-EPFL/flygym.git@v2.1.0'
+#   flydrones fly --drone flygym --config configs/neuromechfly.yaml --input gesture --seconds 8
+#
+# Docs: https://neuromechfly.org
+
+decoder:
+  cruise: 0.35
+
+safety:
+  min_alt_m: 0.0
+  max_alt_m: 50.0
+  geofence_radius_m: 0.5
+  max_throttle: 0.8
+  max_yaw: 0.8
+  max_forward: 0.8
+  max_flight_s: 60

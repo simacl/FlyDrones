@@ -49,6 +49,12 @@ class Pilot:
         self.illusion = GestureIllusion()
         self.history: list[dict] = []
         self._t0 = None
+        self.learner = None
+        self._collisions_seen = int(getattr(drone, "collisions", 0) or 0)
+        if cfg.get("learn", {}).get("online"):
+            from .experience import OnlineLearner
+
+            self.learner = OnlineLearner(brain, eta=float(cfg.get("learn", {}).get("eta", 0.35)))
 
     def warmup(self, seconds: float, dt: float = 0.05) -> None:
         """Let the brain settle on the ground (still scene) and measure resting rates."""
@@ -81,6 +87,9 @@ class Pilot:
             self.drone.land()
         else:
             self.drone.send(cmd)
+        if self.learner is not None:
+            self.learner.observe(dt)
+            self.learner.reinforce(self.learner.verdict(), dt=dt)
         self.history.append({"t": t, "alt": tel.alt_m, "x": tel.x_m, "y": tel.y_m, "yaw": tel.yaw_deg, **{f"cmd_{k}": getattr(cmd, k) for k in ("throttle", "yaw", "forward")},
                              "escape": cmd.escape, **{f"hz_{k}": v for k, v in rates.items() if k.startswith("DN")}})
         return TickInfo(t, cam if cam is not None else frame, rates, raw, cmd, tel, g, self.illusion.mode if g is not None else "camera",
@@ -110,6 +119,35 @@ def run_sim(pilots: list[Pilot], seconds: float, hz: float = 20.0, on_tick=None,
                 p.drone.step(dt / physics_substeps)
         if on_tick:
             on_tick(k, infos)
+    return out
+
+
+def run_embodied(pilots: list[Pilot], seconds: float, hz: float = 20.0, on_tick=None) -> list[list[TickInfo]]:
+    """Simulated time for bodies that integrate physics inside ``send()`` (e.g. FlyGym)."""
+    dt = 1.0 / hz
+    out: list[list[TickInfo]] = [[] for _ in pilots]
+    for p in pilots:
+        p.drone.connect()
+        p.warmup(p.decoder.settle_s + 0.1, dt)
+        if p.cfg.get("control", {}).get("takeoff", True):
+            p.drone.takeoff()
+    try:
+        steps = int(seconds * hz)
+        for k in range(steps):
+            t = k * dt
+            infos = []
+            for i, p in enumerate(pilots):
+                info = p.tick(t, dt)
+                out[i].append(info)
+                infos.append(info)
+            if on_tick:
+                on_tick(k, infos)
+            if any(p.safety.land_requested for p in pilots):
+                break
+    finally:
+        for p in pilots:
+            p.drone.land()
+            p.drone.close()
     return out
 
 

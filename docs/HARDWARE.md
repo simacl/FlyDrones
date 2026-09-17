@@ -83,6 +83,23 @@ class MyDrone(Drone):
 
 Then run it with `flydrones.runtime.run_realtime(Pilot(brain, MyDrone(), cfg))`.
 
+## NeuroMechFly / FlyGym (optional body)
+
+A fruit-fly *body* instead of a quad. FlyGym is not vendored; install it from EPFL, then:
+
+```bash
+pip install 'flygym @ git+https://github.com/NeLy-EPFL/flygym.git@v2.1.0'
+flydrones fly --drone flygym --config configs/neuromechfly.yaml --input gesture --seconds 8
+```
+
+- **Mapping:** `FlightCommand` is inverted back into left/right descending drive for
+  `HybridTurningController` (`src/flydrones/motor/descending.py`). DNg02 is a flight DN; this is the
+  same kind of engineering as using it as a drone stick. Details: [SCIENCE.md](SCIENCE.md#embodiment-drone-vs-neuromechfly).
+- **Config:** FlyGym is in millimetres. `configs/neuromechfly.yaml` turns off the 0.3 m drone floor and
+  sets a walking cruise.
+- **Eyes:** not the ommatidia lattice yet. `--input gesture` (webcam hand) or a still scene, same as Crazyflie.
+- **Without FlyGym:** `python examples/05_neuromechfly.py` still prints the descending vectors.
+
 ## Laptop
 
 - Any 4-core CPU from the last few years runs MiniFly and sensorimotor cores in real time.

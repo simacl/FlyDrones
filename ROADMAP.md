@@ -9,15 +9,19 @@
 ## 0.2
 - [ ] First real Tello and Crazyflie flights, published with logs and unedited video
 - [ ] MaleCNS group presets verified against neuPrint (haltere, ocelli, more flight DNs)
-- [ ] Retinotopic mapping from optic-lobe column coordinates
+- [x] Retinotopic mapping from optic-lobe column coordinates (MiniFly 6×8 + rank-within-type stand-in; neuPrint column IDs still a loader upgrade)
 - [ ] Record/replay: rerun a flight log through a different brain
 
 ## 0.3
 - [ ] PyTorch / CUDA backend, full MaleCNS in real time on a laptop GPU
-- [ ] Dopamine (PPL1) punishment on collisions, KC→MBON plasticity
+- [x] KC→MBON three-factor plasticity (PPL1/PAM teaching signal on odor valence)
+- [x] Experience keeps writing after development (`examples/08_online.py`)
+- [ ] Dopamine (PPL1) punishment on collisions
+- [x] MaleCNS-first: extra cells like the whole CNS, train, read motors (`flydrones expand`)
 - [ ] Drive early vision (L1-L3, Mi1, Tm3) from pixels instead of software optic flow
 
 ## Later
 - [ ] ROS 2 node and Gazebo world
 - [ ] Brain core onboard a Raspberry Pi 5 or Jetson carried by the drone
 - [ ] Multi-drone swarm with inter-drone looming (each fly sees the others)
+- [ ] NeuroMechFly ommatidia → R1–R6 instead of a camera retina; walking DNs instead of DNg02

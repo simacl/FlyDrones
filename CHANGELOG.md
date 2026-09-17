@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.1.3 - 2026-09-17
+`flydrones circuit`: grow MiniFly, scale synapses, **clone a cell type's axons**, cut pathways, flip transmitters, reverse laterality
+or shuffle addresses, and compare descending-neuron reflexes. See `examples/04_rewire.py`.
+`grow_like` / `--grow 34000` resamples real type-to-type synapses so extra cells are statistically
+the same kinds of neuron (MaleCNS 166k → 200k research path). Grown cells inherit retinotopic
+columns, continue hemilineage birth order, and form new-to-new synapses onto already-born cells.
+`--grow-report` writes a markdown+CSV census of **every** new neuron (`docs/growth/`).
+MaleCNS-first: extra cells like the **whole CNS**, then train, then read motors
+(`examples/07_malecns_expand.py`). After that, the three-factor rule stays on
+every tick (`examples/08_online.py`): same rule, no per-scene branch. Body
+channels enter the brain; PPL1 judges — there is no programmed −1. Count
+writes in both halves.
+Optional NeuroMechFly body: map DNg02 L/R onto FlyGym's walking CPG (`flydrones fly --drone flygym`,
+`examples/05_neuromechfly.py`). https://neuromechfly.org
+
 ## 0.1.2 - 2026-09-16
 Live demo 2.0: detailed blue quadcopter with a fly mascot, furnished bedroom with walls, day/night themes, shadows,
 swat-the-drone game driven by the looming pathway, click-to-stimulate neurons, clickable 3D objects, camera modes,

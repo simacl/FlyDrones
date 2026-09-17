@@ -31,8 +31,18 @@ Code: [`runtime.py`](../src/flydrones/runtime.py).
 | `senses/encoder.py` | features → Poisson rates per input neuron | `InputEncoder` |
 | `motor/decoder.py` | descending-neuron rates → `FlightCommand`, baselines, escape, cruise braking | `MotorDecoder` |
 | `safety.py` | clamps, slew rate, ceiling fade, floor, geofence, watchdog, battery, flight time | `SafetyGovernor`, `Telemetry` |
-| `drones/*` | backends | `SimDrone`, `TelloDrone`, `CrazyflieDrone`, `MavlinkDrone`, `UDPBridgeDrone` |
+| `drones/*` | backends | `SimDrone`, `TelloDrone`, `CrazyflieDrone`, `MavlinkDrone`, `UDPBridgeDrone`, `FlyGymDrone` |
+| `motor/descending.py` | DNg02 / stick → NeuroMechFly left/right CPG drive | `from_dng02`, `from_command` |
 | `calibrate.py` | stimulus battery + ridge regression read-out | `calibrate` |
+| `circuit.py` | grow / lesion / rewire MiniFly and probe descending neurons | `probe`, `preset_connectomes` |
+| `brain/rewire.py` | scale synapses, ablate, flip, reverse laterality, shuffle, grow_like | `ablate`, `grow_like`, `clone_neurons` |
+| `brain/minicns.py` | MaleCNS-named toy: claw-like PN→KC, MB + CX + T1–T3 legs + flight DN | `build_minicns` |
+| `brain/expand.py` | grow a compartment; optional motor-pool graft | `expand_compartment`, `graft_appendage` |
+| `brain/plasticity.py` | three-factor weight updates on existing synapses | `PathwaySynapses`, `KCMbonSynapses` |
+| `learn.py` | develop: grow, pair, read motors | `train_body`, `run_embodied_experiment` |
+| `experience.py` | environment: body channels → PPL1, writes both halves | `neural_verdict`, `run_online_experiment` |
+| `capacity.py` | frozen KC nearest-centroid (sidecar) + effector probe | `odor_capacity`, `probe_effectors` |
+| `brain/growth.py` | per-neuron census of a grown cohort (markdown + CSV) | `build_growth_report`, `write_growth_report` |
 | `viz/dashboard.py` | matplotlib dashboard, OpenCV window, GIF writer | `Dashboard` |
 
 ## The simulator core

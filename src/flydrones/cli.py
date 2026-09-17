@@ -147,7 +147,7 @@ def cmd_fly(args) -> int:
         kw = {"host": args.esp32_host}
     elif args.drone == "crazyflie":
         kw = {"uri": args.uri}
-    drone = make_drone(args.drone, **kw) if args.send or args.drone == "sim" else None
+    drone = make_drone(args.drone, **kw) if args.send or args.drone in ("sim", "flygym") else None
     if drone is None:
         drone = DryRunDrone(_Stub(args.drone))
         print("DRY RUN: nothing will fly. Re-run with --send when the drone is in a safe, open space.")
@@ -186,6 +186,10 @@ def cmd_fly(args) -> int:
         from .runtime import run_sim
 
         run_sim([pilot], args.seconds or 30, hz=cfg["control"]["hz"], on_tick=lambda k, infos: on_tick(infos[0]))
+    elif args.drone == "flygym":
+        from .runtime import run_embodied
+
+        run_embodied([pilot], args.seconds or 8, hz=cfg["control"]["hz"], on_tick=lambda k, infos: on_tick(infos[0]))
     else:
         run_realtime(pilot, args.seconds, hz=cfg["control"]["hz"], on_tick=on_tick)
     if args.log:
@@ -269,6 +273,145 @@ def cmd_bench(args) -> int:
     return 0
 
 
+def cmd_circuit(args) -> int:
+    """Poke motor neurons after growing, shrinking or rewiring the connectome."""
+    from .circuit import apply_ops, format_table, load_or_minifly, preset_connectomes, run_variant
+
+    print(BANNER)
+    cfg = _cfg(args)
+    probe_kw = {"settle_ms": args.settle_ms, "measure_ms": args.measure_ms}
+    if args.compare:
+        variants = preset_connectomes()
+        print(f"{len(variants)} MiniFly variants. Same stimuli, same decoder; only the wiring changes.\n")
+    else:
+        c = load_or_minifly(
+            getattr(args, "brain", None),
+            pop_scale=args.pop_scale,
+            syn_scale=1.0,
+            extra_neurons=args.extra_neurons,
+            normalize=args.normalize,
+        )
+        base = c
+        c = apply_ops(
+            c,
+            syn_scale=args.syn_scale,
+            extra_neurons=0,
+            ablate_path=args.ablate,
+            flip=args.flip,
+            shuffle=args.shuffle,
+            reverse=args.reverse,
+            clone=args.clone,
+            clone_normalize=args.normalize,
+            grow=args.grow,
+            grow_types=args.grow_types,
+        )
+        print(c.summary())
+        grown = c.meta.get("grown")
+        if grown:
+            top = sorted(grown["by_type"].items(), key=lambda kv: -kv[1])[:12]
+            hist = ", ".join(f"{t}={k}" for t, k in top)
+            nn = grown.get("new_to_new", 0)
+            print(f"grown {grown['n']} cells like real types (+{grown['new_connections']} synapses, {nn} new→new): {hist}")
+        if args.grow_report and grown:
+            from .brain import build_growth_report, write_growth_report
+
+            report = build_growth_report(base, c, cfg, probe_kw)
+            md, csv_path = write_growth_report(report, args.grow_report)
+            print(f"growth report -> {md}")
+            print(f"every new neuron -> {csv_path}")
+        variants = [(args.name or c.name, c)]
+    rows = [run_variant(name, conn, cfg, **probe_kw) for name, conn in variants]
+    print(format_table(rows))
+    return 0
+
+
+def _resolve_research_brain(source: str | None):
+    from pathlib import Path
+
+    from .brain import build_minicns, load_connectome
+
+    if source:
+        return load_connectome(source)
+    npz = Path("data/malecns_brain.npz")
+    if npz.exists():
+        print(f"using MaleCNS {npz}")
+        return load_connectome(npz)
+    print("no data/malecns_brain.npz — using MiniCNS (MaleCNS-named toy). Build the real brain with:")
+    print("  flydrones download malecns && flydrones build-brain --out data/malecns_brain.npz")
+    return build_minicns()
+
+
+def cmd_expand(args) -> int:
+    """Grow the whole CNS, train, read motors."""
+    from .brain import graft_appendage
+    from .capacity import effector_verdict, probe_effectors, research_config
+    from .learn import body_snapshot, format_embodied_report, run_embodied_experiment
+
+    print(BANNER)
+    cfg = research_config(getattr(args, "config", None))
+    c = _resolve_research_brain(getattr(args, "brain", None))
+    print(c.summary())
+    extra_n = int(args.grow) if args.grow is not None else 160
+    type_pats = None
+    if args.grow_types:
+        type_pats = []
+        for raw in args.grow_types.split(","):
+            raw = raw.strip()
+            type_pats.append(raw if any(ch in raw for ch in ".*+?^$[]") else f"^{raw}")
+    if args.graft:
+        grafted = c
+        for kind in args.graft:
+            grafted = graft_appendage(grafted, kind, seed=args.seed)
+            print(f"after graft {kind}:", grafted.summary())
+        rates = probe_effectors(grafted, cfg)
+        verdict = effector_verdict(grafted, rates)
+        print("\n(graft probe)")
+        for name, v in verdict.items():
+            bit = f" loom={v.get('loom_hz', 0):.1f}Hz climb={v.get('climb_hz', 0):.1f}Hz"
+            if "walk_hz" in v:
+                bit += f" walk={v['walk_hz']:.1f}Hz"
+            copy = f" copy_of={v['copy_of']} r={v['corr']:.2f}" if v.get("copy_of") else ""
+            print(f"  {name:12s} {v['status']:10s}{copy}{bit}")
+    if args.train and not getattr(args, "life", False):
+        print(f"\nGrow {extra_n} cells like the whole CNS, train, read the body…")
+        exp = run_embodied_experiment(c, cfg, extra=extra_n, epochs=args.epochs, seed=args.seed, type_pats=type_pats)
+        text_out = format_embodied_report(exp, title=f"MaleCNS growth+train: {c.name}")
+        print(text_out)
+        if args.report:
+            from pathlib import Path as P
+
+            path = P(args.report)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(text_out, encoding="utf-8")
+            print(f"\nreport -> {path}")
+    elif not getattr(args, "life", False):
+        snap = body_snapshot(c, cfg)
+        print(
+            f"untrained body: climb→lift {snap['climb_lift_hz']:.1f} Hz, "
+            f"climb→walk {snap['climb_walk_hz']:.1f} Hz, loom→escape {snap['loom_escape_hz']:.1f} Hz"
+        )
+    if getattr(args, "life", False):
+        from .brain import grow_like
+        from .experience import format_online_report, run_online_experiment
+
+        body = c
+        if extra_n:
+            body = grow_like(c, extra_n, min_pop=1, type_pats=type_pats, seed=args.seed)
+            print("after grow for life:", body.summary())
+        print("\nEnvironment: rule stays on; count writes in both halves…")
+        life = run_online_experiment(body, cfg, develop=bool(args.train), epochs=args.epochs, seed=args.seed)
+        life_text = format_online_report(life, title=f"在线持续写入: {body.name}")
+        print(life_text)
+        if args.report:
+            from pathlib import Path as P
+
+            path = P(args.report)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(life_text, encoding="utf-8")
+            print(f"\nreport -> {path}")
+    return 0
+
+
 def _write_log(path, rows) -> None:
     if not rows:
         return
@@ -309,7 +452,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     sp = sub.add_parser("fly", help="fly a real drone (dry run unless --send)")
     common(sp)
-    sp.add_argument("--drone", choices=["sim", "tello", "crazyflie", "mavlink", "esp32"], default="tello")
+    sp.add_argument("--drone", choices=["sim", "tello", "crazyflie", "mavlink", "esp32", "flygym"], default="tello")
     sp.add_argument("--input", choices=["camera", "gesture", "both"], default="both",
                     help="camera = drone camera optic flow, gesture = webcam hand, both = both")
     sp.add_argument("--send", action="store_true", help="really send commands to the drone")
@@ -352,6 +495,46 @@ def build_parser() -> argparse.ArgumentParser:
     common(sp)
     sp.add_argument("--ms", type=float, default=1000)
     sp.set_defaults(func=cmd_bench)
+
+    sp = sub.add_parser(
+        "circuit",
+        help="probe motor neurons after adding cells/synapses or changing the wiring",
+    )
+    common(sp)
+    sp.add_argument("--compare", action="store_true", help="run the MiniFly lesion suite (scale, ablate, flip, shuffle)")
+    sp.add_argument("--pop-scale", type=float, default=1.0, help="multiply MiniFly population sizes")
+    sp.add_argument("--syn-scale", type=float, default=1.0, help="multiply synapse counts")
+    sp.add_argument("--extra-neurons", type=int, default=0, help="add unconnected neurons (slower, same flight)")
+    sp.add_argument("--normalize", action="store_true", help="with --pop-scale or --clone, keep mean synaptic drive per cell")
+    sp.add_argument("--clone", help="add neurons of one type by copying its axons/dendrites, e.g. T4c:96 or T4c:L:48")
+    sp.add_argument("--grow", type=int, help="grow N new cells by resampling real type-to-type synapses (MaleCNS 166k→200k is --grow 34000)")
+    sp.add_argument("--grow-types", help="restrict --grow to these cell types, comma-separated (e.g. T4c,DNg02)")
+    sp.add_argument("--grow-report", help="write a markdown+CSV census of every new neuron (path stem, e.g. docs/growth/minifly_plus200)")
+    sp.add_argument("--ablate", help="cut a pathway, type regexes as pre:post (e.g. T4c:VS)")
+    sp.add_argument("--flip", help="negate outgoing synapses of this cell type (e.g. LPi_v)")
+    sp.add_argument("--reverse", help="send this type's axons to the other hemisphere (e.g. HS)")
+    sp.add_argument("--shuffle", action="store_true", help="keep synapse counts, randomize who they land on")
+    sp.add_argument("--name", help="label for this variant")
+    sp.add_argument("--settle-ms", type=float, default=800)
+    sp.add_argument("--measure-ms", type=float, default=800)
+    sp.set_defaults(func=cmd_circuit)
+
+    sp = sub.add_parser(
+        "expand",
+        help="MaleCNS research: grow the whole CNS, train, read motors",
+    )
+    common(sp)
+    sp.add_argument("--graft", action="append", choices=["tail", "extra_legs"], help="optional motor-pool probe")
+    sp.add_argument("--grow", type=int, help="how many extra cells (default 160, whole-CNS types)")
+    sp.add_argument("--grow-types", dest="grow_types", help="restrict --grow, comma-separated")
+    sp.add_argument("--grow-kc", type=int, help="unused; extra cells are whole-CNS unless --grow-types")
+    sp.add_argument("--train", dest="train", action="store_true", default=True, help="train then read the body (default)")
+    sp.add_argument("--no-train", dest="train", action="store_false", help="skip training")
+    sp.add_argument("--epochs", type=int, default=8, help="pairing epochs")
+    sp.add_argument("--seed", type=int, default=0)
+    sp.add_argument("--report", help="write a markdown verdict")
+    sp.add_argument("--life", action="store_true", help="after development: use the body, experience keeps writing")
+    sp.set_defaults(func=cmd_expand)
     return p
 
 

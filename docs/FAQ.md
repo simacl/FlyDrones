@@ -13,7 +13,41 @@ All of that is open in this repo.
 So anyone can run the demo in seconds without a 1.2 GB download. Two commands switch to MaleCNS.
 
 **Does it learn?**
-Not yet. The connectome weights are fixed. Dopamine-based plasticity (as in DOOMFLY) is on the roadmap.
+Development teaches how to drive the legs. After that the three-factor rule
+stays on every tick. Body channels enter the brain; PPL1 judges. Same rule
+for every scene. Count writes in both halves. `python examples/08_online.py`.
+[RESEARCH_MALECNS.md](RESEARCH_MALECNS.md).
+
+**Does adding neurons give the fly new skills or more intelligence?**
+Add cells like the **whole CNS**, train, then read motors. On MiniCNS, scene-up
+did not walk (0 Hz). After pairing it with the leg chain, it walks; +160 cells
+walk harder (40 Hz vs 123 Hz). They are not dumped onto smell unless you pass
+`--grow-types KC`. `flydrones expand --grow 160`. [RESEARCH_MALECNS.md](RESEARCH_MALECNS.md).
+
+**Can I grow MaleCNS from 166k to 200k real cells?**
+Not from EM: that volume is already complete. `flydrones circuit --grow 34000 --brain data/malecns_brain.npz`
+resamples real type-to-type synapses so the extra cells have the same partners, signs and degrees as
+existing population types (never the giant fiber). New cells inherit retinotopic columns, continue
+the hemilineage birth order, and synapse onto already-born members of the cohort. The written
+census of every new neuron is `flydrones circuit --grow N --grow-report ...` (see
+[docs/growth/](growth/) and [SCIENCE.md](SCIENCE.md#growing-34000-real-like-cells-166k--200k)).
+
+**What if I add neurons or synapses?**
+New cells copy the motif of their type (same partners, same sign). `--clone T4c:96` does that;
+`--pop-scale` rebuilds every population and also makes the circuit louder unless `--normalize`.
+Unconnected padding does nothing to flight. The giant fiber stays one per side. Details:
+[SCIENCE.md](SCIENCE.md#how-to-wire-a-new-neuron).
+
+**What if I change the wiring?**
+The drone still reads the same descending neurons. Cut T4c→VS and it will not climb; reverse HS laterality
+and it turns the wrong way; shuffle the targets and the reflexes disappear. The decoder and the safety
+governor do not compensate. `examples/04_rewire.py` prints the table.
+
+**How does this relate to NeuroMechFly?**
+NeuroMechFly is the body (MuJoCo fly, compound eyes, walking CPG). FlyDrones is the brain
+(connectome LIF, descending neurons). They share a two-channel descending interface. See
+[SCIENCE.md](SCIENCE.md#embodiment-drone-vs-neuromechfly), `examples/05_neuromechfly.py`, and
+`flydrones fly --drone flygym --config configs/neuromechfly.yaml`.
 
 **Can one brain fly a swarm?**
 `flydrones swarm` copies one connectome into several brains with shared wiring and separate activity.

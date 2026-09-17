@@ -65,6 +65,9 @@ class Connectome:
     body_ids: np.ndarray | None = None
     groups: dict[str, np.ndarray] = field(default_factory=dict)
     meta: dict = field(default_factory=dict)
+    columns: np.ndarray | None = None  # retinotopic column index, -1 if unknown
+    lineage: np.ndarray | None = None  # hemilineage label (type_side proxy if not annotated)
+    birth: np.ndarray | None = None  # birth order within the hemilineage
 
     @property
     def n(self) -> int:
@@ -78,11 +81,44 @@ class Connectome:
     def n_synapses(self) -> int:
         return int(np.abs(self.weights.data).sum())
 
+    @property
+    def grid(self) -> tuple[int, int]:
+        g = self.meta.get("grid") or [6, 8]
+        return int(g[0]), int(g[1])
+
     def summary(self) -> str:
+        extra = ""
+        if self.columns is not None:
+            extra = f", {int((self.columns >= 0).sum()):,} with column coords"
         return (
             f"{self.name}: {self.n:,} neurons, {self.n_connections:,} directed connections, "
-            f"{self.n_synapses:,} synapses in kept connections"
+            f"{self.n_synapses:,} synapses in kept connections{extra}"
         )
+
+    def column_rc(self) -> np.ndarray:
+        """(n, 2) int32 array of (row, col) on the eye grid; (-1, -1) if unknown."""
+        n_cols = self.grid[1]
+        out = np.full((self.n, 2), -1, dtype=np.int32)
+        if self.columns is None:
+            return out
+        ok = self.columns >= 0
+        out[ok, 0] = self.columns[ok] // n_cols
+        out[ok, 1] = self.columns[ok] % n_cols
+        return out
+
+    def ensure_geometry(self) -> Connectome:
+        """Fill missing columns / hemilineage / birth from type+side rank. In-place."""
+        cols, lin, br = infer_geometry(
+            self.types,
+            self.sides,
+            grid=self.grid,
+            columns=self.columns,
+            lineage=self.lineage,
+            birth=self.birth,
+        )
+        self.columns, self.lineage, self.birth = cols, lin, br
+        self.meta.setdefault("grid", list(self.grid))
+        return self
 
     # ------------------------------------------------------------- selection
     def select(self, type_patterns: list[str] | str, side: str | None = None) -> np.ndarray:
@@ -105,6 +141,22 @@ class Connectome:
     def group(self, name: str) -> np.ndarray:
         return self.groups.get(name, np.zeros(0, dtype=np.int64))
 
+    def copy(self, name: str | None = None) -> Connectome:
+        """Deep-copy weights and labels. Groups are copied; dynamics are not."""
+        return Connectome(
+            name=name or self.name,
+            weights=self.weights.copy(),
+            types=self.types.copy(),
+            sides=self.sides.copy(),
+            superclass=None if self.superclass is None else self.superclass.copy(),
+            body_ids=None if self.body_ids is None else self.body_ids.copy(),
+            groups={k: v.copy() for k, v in self.groups.items()},
+            meta=dict(self.meta),
+            columns=None if self.columns is None else self.columns.copy(),
+            lineage=None if self.lineage is None else self.lineage.copy(),
+            birth=None if self.birth is None else self.birth.copy(),
+        )
+
     # ------------------------------------------------------------- io
     def save(self, path: str | Path) -> Path:
         path = Path(path)
@@ -122,6 +174,9 @@ class Connectome:
             body_ids=self.body_ids if self.body_ids is not None else np.array([], dtype=np.int64),
             groups=json.dumps({k: v.tolist() for k, v in self.groups.items()}),
             meta=json.dumps({"name": self.name, **self.meta}),
+            columns=self.columns if self.columns is not None else np.array([], dtype=np.int32),
+            lineage=(self.lineage if self.lineage is not None else np.array([], dtype=str)).astype(str),
+            birth=self.birth if self.birth is not None else np.array([], dtype=np.int32),
         )
         return path
 
@@ -133,6 +188,14 @@ class Connectome:
         groups = {k: np.asarray(v, dtype=np.int64) for k, v in json.loads(str(z["groups"])).items()}
         sc = z["superclass"]
         bid = z["body_ids"]
+        files = set(z.files)
+
+        def _opt(key: str):
+            if key not in files:
+                return None
+            a = z[key]
+            return None if a.size == 0 else a
+
         return cls(
             name=meta.pop("name", Path(path).stem),
             weights=W,
@@ -142,6 +205,9 @@ class Connectome:
             body_ids=bid if bid.size else None,
             groups=groups,
             meta=meta,
+            columns=_opt("columns"),
+            lineage=_opt("lineage"),
+            birth=_opt("birth"),
         )
 
     # ------------------------------------------------------------- subgraph
@@ -163,6 +229,9 @@ class Connectome:
             body_ids=None if self.body_ids is None else self.body_ids[keep],
             groups=groups,
             meta={**self.meta, "parent": self.name, "subgraph_neurons": int(keep.size)},
+            columns=None if self.columns is None else self.columns[keep],
+            lineage=None if self.lineage is None else self.lineage[keep],
+            birth=None if self.birth is None else self.birth[keep],
         )
 
     def sensorimotor_core(self, hops: int = 3, max_neurons: int | None = None) -> Connectome:
@@ -205,6 +274,59 @@ def _reach(A: sparse.spmatrix, seeds: np.ndarray, hops: int) -> np.ndarray:
             break
         seen |= frontier > 0
     return seen
+
+
+def infer_geometry(
+    types: np.ndarray,
+    sides: np.ndarray,
+    grid: tuple[int, int] = (6, 8),
+    columns: np.ndarray | None = None,
+    lineage: np.ndarray | None = None,
+    birth: np.ndarray | None = None,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Retinotopic column, hemilineage and birth order from type+side rank.
+
+    MaleCNS annotations do not always ship column / hemilineage fields in the
+    flat connectome dump. Rank-within-(type, side) mapped onto the eye grid is
+    the same rule the encoder already used; growing cells then inherit a real
+    column instead of a random address.
+    """
+    n = len(types)
+    types = np.asarray(types).astype(str)
+    sides = np.asarray(sides).astype(str)
+    n_omma = int(grid[0]) * int(grid[1])
+    if columns is not None and len(columns) == n:
+        columns_out = np.asarray(columns, dtype=np.int32)
+        fill_cols = False
+    else:
+        columns_out = np.full(n, -1, dtype=np.int32)
+        fill_cols = True
+    if lineage is not None and len(lineage) == n:
+        lineage_out = np.asarray(lineage).astype(str)
+        fill_lin = False
+    else:
+        lineage_out = np.empty(n, dtype=object)
+        fill_lin = True
+    if birth is not None and len(birth) == n:
+        birth_out = np.asarray(birth, dtype=np.int32)
+        fill_birth = False
+    else:
+        birth_out = np.zeros(n, dtype=np.int32)
+        fill_birth = True
+    if fill_cols or fill_lin or fill_birth:
+        keys = np.array([f"{t}\t{s}" for t, s in zip(types, sides)])
+        for key in np.unique(keys):
+            idx = np.flatnonzero(keys == key)
+            t, s = key.split("\t", 1)
+            if fill_lin:
+                lineage_out[idx] = f"{t}_{s}" if s else t
+            if fill_birth:
+                birth_out[idx] = np.arange(idx.size, dtype=np.int32)
+            if fill_cols:
+                columns_out[idx] = (np.arange(idx.size) * n_omma // max(idx.size, 1)).astype(np.int32)
+        if fill_lin:
+            lineage_out = np.asarray(lineage_out, dtype=str)
+    return columns_out, np.asarray(lineage_out).astype(str), birth_out
 
 
 # ---------------------------------------------------------------------------
@@ -326,4 +448,4 @@ def build_malecns(
             "license": "MaleCNS data: CC-BY 4.0 (Janelia FlyEM, Cambridge, MRC LMB, Google Research)",
             "min_synapses": min_synapses,
         },
-    )
+    ).ensure_geometry()

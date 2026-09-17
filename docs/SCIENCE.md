@@ -47,8 +47,12 @@ octopamine treated as excitatory (a simplification: their real effects are modul
 | rotation | haltere afferents | halteres act as gyroscopes | drone IMU yaw rate |
 | gestures | (none) | (none) | hand pose becomes an optic-flow illusion. Purely an interface trick |
 
-**Retinotopy is approximate.** Neurons of a group are spread over the eye grid in index order. MaleCNS has
-optic-lobe column coordinates that would allow true retinotopy; that is on the roadmap.
+**Retinotopy follows column coordinates when present.** MiniFly assigns each neuron a column on
+the 6×8 eye grid (rank within type+side, the same mapping the encoder used). Grown cells inherit
+a column from an existing cell of that type, so extra T4c share ommatidia rather than inventing
+new viewing directions. MaleCNS flat files do not always include optic-lobe columns; then the
+same rank-within-type mapping is the stand-in. True neuPrint column IDs remain a data-loader
+upgrade, not a different wiring rule.
 
 ## Motor side
 
@@ -88,9 +92,172 @@ haltere ─► DNg02 other side (+), LAL_inh same side (yaw damping)
 It is useful to test the software. It is not evidence about the real fly. For that, build the MaleCNS
 brain, run `flydrones inspect`, and compare.
 
+## What if you add neurons, add synapses, or rewire?
+
+The drone reads **mean rates** of named groups (`DNg02` L/R, `DNp01`, `DNp03`). Growing or rewiring
+the graph only matters if those rates change.
+
+### How to wire a new neuron
+
+A new cell is not a blank vertex. It copies the **motif of its cell type**:
+
+1. **Same type, same side, same partners, same sign.** A new `T4c` L gets dendrites from whatever
+   drives existing `T4c` L (in MiniFly: the camera encoder) and axons onto the same `VS` L cells,
+   excitatory. It does *not* grow a random edge to `DNp01` or to the other eye.
+2. **Clone, don't densify.** `clone_neurons` / `--clone T4c:96` copies one existing cell's incoming
+   and outgoing synapses onto each new index. `--pop-scale 2` rebuilds *every* population with the
+   same `connect()` rules, so HS, VS and DNg02 grow too and synapse count goes as \(s^2\). Use clone
+   when you mean "more T4c".
+3. **Then choose the gain.** Extra axons onto the same VS cells make the climb louder unless you pass
+   `--normalize`, which scales that type's outgoing weights by \(n_\text{old}/(n_\text{old}+n)\) so
+   mean drive is unchanged and the extra cells only average Poisson noise.
+4. **Readout populations are different.** The decoder uses the **mean** of `DNg02`. Cloning DNg02
+   (no MiniFly outgoing synapses) barely changes the command; it mainly reduces the variance of that
+   mean. Do not clone identified cells: the giant fiber `DNp01` stays **one per side**.
+5. **Grid sensory cells share ommatidia.** The encoder maps neuron \(k\) of \(n\) onto cell
+   \(\lfloor k \cdot 48 / n \rfloor\). Extra T4c sit on the existing 6×8 lattice; they do not invent
+   new viewing directions.
+6. **Empty axons do nothing.** `--extra-neurons` adds membranes with no synapses. Flight is unchanged.
+7. **MaleCNS cannot be EM-grown past completeness.** v1.0 is already the whole CNS of one male fly
+   (~166k neurons). There is no reservoir of 34k untraced cells in that volume. What you *can*
+   research is growing cells that obey the same type / side / synapse statistics — see below.
+
+### Growing 34,000 real-like cells (166k → 200k)
+
+A real adult fly does not have 200k central neurons. Asking for 34k more **true cells** therefore
+means: sample new neurons from the same generative process the connectome implies, not from a
+random graph and not from a grafted gadget with a new job.
+
+`grow_like(connectome, 34_000)` does that:
+
+1. Draw a cell type and side with probability equal to how common it is among population types.
+2. Never draw identified cells (giant fiber `DNp01` stays one per side).
+3. Bootstrap that type's real axons: out-degree and `(target, weight)` pairs are resampled from
+   existing synapses of the same type (same partners, same sign, same typical strength).
+4. Bootstrap dendrites the same way (existing cells grow collaterals onto the newborn).
+5. Birth order: a newborn innervates the scaffold that is already there,
+   **including earlier-born cells of this cohort** (new-to-new synapses). A cell
+   born at step *k* cannot target a cell that does not exist yet.
+6. The original MaleCNS block is copied unchanged — you can still tell which synapses were
+   measured by EM.
+7. Retinotopy: each new cell inherits a column from an existing cell of the same type
+   (densifying the 6×8 lattice, not inventing new viewing directions). Partner sampling
+   is weighted toward nearby columns (`column_tau=1.5`).
+8. Hemilineage: `(type, side)` is the lineage proxy; `birth` continues the rank within
+   that lineage. Identified neurons (`DNp01`) are never drawn.
+
+```bash
+flydrones circuit --grow 200 --grow-report docs/growth/minifly_plus200
+python examples/06_grow_real.py
+flydrones circuit --grow 34000 --brain data/malecns_brain.npz --grow-report docs/growth/malecns_plus34000
+flydrones circuit --grow 5000 --grow-types T4c,DNg02 --brain data/malecns_brain.npz
+```
+
+The written report lists **every new neuron**: type, side, column `(row,col)`, hemilineage,
+birth index, in/out degree, new-to-new synapses, and actual pre/post cell types. MiniFly
++200 (every row) and MiniFly +34,000 (CSV of all cells) live in [docs/growth/](growth/).
+
+`flydrones circuit --clone T4c:96` copies **one** exemplar. `grow_like` copies the **type's
+distribution**. Use clone when you mean "another T4c like this one"; use grow when you mean
+"34k more neurons of the kinds this brain already has".
+
+### MaleCNS-first: extra cells, then train
+
+Flight read-out is not the whole CNS. Further neuron-growth work uses MaleCNS compartments
+(mushroom body, central complex, VNC). See [RESEARCH_MALECNS.md](RESEARCH_MALECNS.md).
+
+Extra cells follow the whole connectome. `flydrones expand --grow 160`
+grows them, trains scene-up onto lift and legs (and loom onto escape), and
+reads motor rates.
+
+1. **New action.** Scene-up did not walk. After training it does. Extra cells
+   make that walk stronger (40 Hz vs 123 Hz on MiniCNS).
+2. **Stronger existing actions.** Lift and escape rates also rise after the
+   same pairing, more so with extra cells.
+
+```bash
+python examples/07_malecns_expand.py
+flydrones expand --brain minicns --grow 160
+flydrones expand --brain data/malecns_brain.npz --grow 2000
+```
+
+### After development: experience keeps writing
+
+Development teaches how to drive the legs. `examples/08_online.py` then leaves
+the three-factor rule on every tick. Body channels the brain already has
+(mdIV, chordotonal, LPLC2, unloading) enter PPL1. There is no per-scene
+branch and no `if hit: −1`. The readout is whether both halves of a stretch
+received writes.
+
+Measured MiniCNS +80 (340 cells): frozen writes 0/80 then 0/80. Online writes
+80/80 then 80/80 ([docs/growth/malecns_life.md](growth/malecns_life.md)).
+
+```bash
+python examples/08_online.py
+flydrones expand --brain minicns --grow 80 --life
+```
+
+`flydrones circuit --compare` and `examples/04_rewire.py` run the same stimulus battery on several MiniFly variants:
+
+| change | what actually happens | MiniFly `--compare` (seed 7) |
+|---|---|---|
+| **More synapses** (`--syn-scale 2`) | Each PSP is larger (`w_syn * count`). Reflexes get stronger, then saturate against the spike refractory cap (~450 Hz). | climb Δlift 66 → 160 Hz; giant fiber 59 → 104 Hz |
+| **Weaker synapses** (`--syn-scale 0.3`) | Tonic bias on DNg02 still holds a rest rate (~31 Hz/side). Visual pathways no longer push HS/VS/DNg02 off that rest, so the drone cannot climb, turn or escape. | every reflex *delta* goes to 0; rest firing stays |
+| **More of each cell type** (`--pop-scale 2`) | Rebuild MiniFly with larger pops (except DNp01). Same motifs, but drive onto each post grows (~4× connections). A louder circuit. | climb 66 → ~170 Hz; giant fiber count stays 2 |
+| **Clone one type** (`--clone T4c:96`) | Copy T4c axons onto the same VS cells. Other pathways untouched. | climb 66 → **101 Hz**; yaw and looming stay |
+| **Clone, drive held** (`--clone T4c:96 --normalize`) | Same copies, outgoing weights of T4c scaled down. Extra cells average noise. | climb **65 Hz** (≈ baseline) |
+| **Unconnected padding** (`--extra-neurons 400`) | Isolated neurons never spike into the circuit. Flight is unchanged. At MiniFly size the extra membranes are cheap; on a 166k graph the per-step array work dominates (see [ARCHITECTURE.md](ARCHITECTURE.md)). | identical rates to baseline |
+| **Cut a pathway** (`--ablate T4c:VS`) | Scene-up never reaches VS → DNg02. Open-palm climb dies; yaw and looming use different axons and stay. | climb Δlift 66 → 0; yaw and giant fiber untouched |
+| **Flip a transmitter** (`--flip LPi_v`) | Inhibitory LPi_v becomes excitatory. Downward motion, which should *cut* lift, starts *adding* lift. | descent Δlift −60 → **+39 Hz** (sign reversal) |
+| **Cross the midline** (`--reverse HS`) | HS axons land on the other hemisphere. Rightward flow that used to raise right DNg02 now raises left. | yaw R−L +17 → **−17 Hz** |
+| **Shuffle addresses** (`--shuffle`) | Same axons, same synapse counts, random targets. Circuit identity is gone. | reflexes near zero; decoder still watches DNg02, which no longer means "climb" |
+
+**What does *not* change when you rewire:** the linear decoder, the safety governor, the drone backend,
+the camera → T4/T5 encoding. `flydrones calibrate` can retune the read-out weights, but it cannot
+restore a pathway you cut — if DNg02 never sees T4c, no gain will make the drone climb to an open palm.
+
+On MaleCNS the same operations apply to a built `.npz` (`--brain data/malecns_brain.npz --ablate ...`).
+Population scaling (`--pop-scale`) is MiniFly-only: you cannot invent traced neurons that EM did not reconstruct.
+
+## Embodiment: drone vs NeuroMechFly
+
+[NeuroMechFly](https://neuromechfly.org) (FlyGym, EPFL Neuroengineering Lab) is a digital twin of the
+adult fly: micro-CT body, compound-eye ommatidia, odor sensors, leg adhesion, and a ventral-nerve-cord
+layer that turns a **two-value descending command** into a walking CPG
+([Wang-Chen et al., *Nat Methods* 2024](https://www.nature.com/articles/s41592-024-02497-y);
+turning-controller tutorial: left/right drive in about `[0.4, 1.2]`).
+
+FlyDrones is the complementary half: a connectome LIF brain whose motor is six descending-neuron rates.
+The two stacks meet at that descending interface:
+
+| FlyDrones | NeuroMechFly HybridTurningController |
+|---|---|
+| `DNg02_L`, `DNg02_R` (Hz) | `descending_signal = [left, right]` |
+| drone stick `throttle ∝ L+R`, `yaw ∝ R−L` | CPG amplitude L vs R, then joint + adhesion |
+| Tello / Crazyflie / sim quad | MuJoCo fly on flat or mixed terrain |
+| software optic flow on a camera | hexagonal ommatidia (`get_ommatidia_readouts`) |
+
+**This mapping is engineering.** DNg02 is a *flight* descending neuron (wing-stroke amplitude). Walking
+uses other DNs. We reuse the independent left/right pattern because that is what both APIs actually
+expose, the same way we reuse it as a quad stick. Giant-fiber escape becomes a halt (`[0.2, 0.2]`), not
+a jump takeoff. Compound-eye pixels are not yet wired into MiniFly's R1–R6; the first bridge uses the
+same gesture/camera retina as the drone backends.
+
+`examples/05_neuromechfly.py` prints the descending vector for each MiniFly stimulus, and shows that
+reversing HS laterality **swaps L/R drive** — the walking fly would turn the wrong way for the same
+reason the drone would. Optional body:
+
+```bash
+pip install 'flygym @ git+https://github.com/NeLy-EPFL/flygym.git@v2.1.0'
+flydrones fly --drone flygym --config configs/neuromechfly.yaml --input gesture --seconds 8
+```
+
+Use that config: FlyGym units are millimetres, and the drone safety floor (0.3 m) would pin a 1 mm
+animal to the ground.
+
 ## Known limitations
 
-- Point neurons: no dendrites, no gap junctions, no neuromodulator dynamics, no plasticity.
+- Point neurons: no dendrites, no gap junctions, no neuromodulator *dynamics*. Motor pathways and KC→MBON use a rate-based three-factor rule (development, then optional online). Teaching valence is a scalar, not an intracellular dopamine cascade or PPL1 spike train.
 - Motion vision computed by software instead of by the connectome's own early visual system.
 - A 5 cm drone camera and a fly's 360° compound eye see very different worlds.
 - Real flies fly at ~200 wingbeats per second with millisecond reflexes; the loop here runs at 20-50 Hz.
@@ -105,4 +272,4 @@ brain, run `flydrones inspect`, and compare.
 5. *Activity of a descending neuron associated with visually elicited flight saccades in Drosophila.* *Current Biology* 2024.
 6. *Drosophila DNp03 descending neurons serve as a hub within a flight saccade network.* *Current Biology* 2025.
 7. Maisak M.S. et al. *A directional tuning map of Drosophila elementary motion detectors.* *Nature* 2013.
-8. Dorkenwald S. et al. / FlyWire Consortium. *Neuronal wiring diagram of an adult brain.* *Nature* 2024.
+9. Wang-Chen S. et al. *NeuroMechFly v2: simulating embodied sensorimotor control in adult Drosophila.* *Nature Methods* 2024. [neuromechfly.org](https://neuromechfly.org).

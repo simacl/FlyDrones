@@ -111,6 +111,22 @@ class LIFNetwork:
         self._t = 0
         self.t_ms = 0.0
 
+    def set_connectivity(self, weights: sparse.spmatrix) -> None:
+        """Replace the synapse matrix without resetting membrane state.
+
+        Used by KC→MBON training: the same cells keep their voltages, only
+        the learnt weights change. ``weights`` must stay shape ``(n, n)``.
+        """
+        W = sparse.csc_matrix(weights, dtype=np.float32)
+        if W.shape != (self.n, self.n):
+            raise ValueError(f"connectivity shape {W.shape} does not match n={self.n}")
+        W.sum_duplicates()
+        W.eliminate_zeros()
+        self.W = W
+        self._indptr = W.indptr.astype(np.int64)
+        self._indices = W.indices.astype(np.int64)
+        self._data = (W.data * self.p.w_syn).astype(np.float32)
+
     def copy(self, seed: int | None = None) -> LIFNetwork:
         """A new brain with identical wiring and fresh state (for swarms)."""
         clone = LIFNetwork.__new__(LIFNetwork)

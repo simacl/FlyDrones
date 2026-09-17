@@ -42,6 +42,9 @@ def test_save_load_roundtrip(tmp_path):
     d = Connectome.load(path)
     assert d.n == c.n and d.n_connections == c.n_connections
     assert list(d.group("x")) == [1, 2, 3]
+    assert d.columns is not None and d.columns.shape == (c.n,)
+    assert np.array_equal(d.columns, c.columns)
+    assert np.array_equal(d.lineage.astype(str), c.lineage.astype(str))
 
 
 def test_sensorimotor_core_keeps_io():
