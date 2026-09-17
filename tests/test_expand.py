@@ -60,4 +60,4 @@ def test_cli_expand_graft(capsys):
     assert main(["expand", "--brain", "minicns", "--no-train", "--graft", "tail", "--graft", "extra_legs"]) == 0
     out = capsys.readouterr().out
     assert "tail" in out.lower()
-    assert "n_KC" in out or "Kenyon" in out or "sidecar" in out.lower()
+    assert "untrained body" in out.lower() or "climb" in out.lower()

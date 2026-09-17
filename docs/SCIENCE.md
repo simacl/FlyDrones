@@ -166,22 +166,19 @@ distribution**. Use clone when you mean "another T4c like this one"; use grow wh
 Flight read-out is not the whole CNS. Further neuron-growth work uses MaleCNS compartments
 (mushroom body, central complex, VNC). See [RESEARCH_MALECNS.md](RESEARCH_MALECNS.md).
 
-Extra Kenyon cells with frozen weights are an unread book. `flydrones expand --grow-kc 160`
-grows them, then trains KC→MBON (PPL1/PAM teaching signal) and reads `MBON01 − MBON04`.
+Extra cells follow the whole connectome. `flydrones expand --grow 160`
+grows them, trains scene-up onto lift and legs (and loom onto escape), and
+reads motor rates.
 
-1. **New ability.** Pair DM1 with reward and DM4 with punishment. The untrained MBON has
-   no preference. After training it does. That association is the new skill — not a grafted organ.
-2. **More powerful after training.** The same pairing on a grown mushroom body. Extra cells
-   without training still fail. After training they can separate good vs bad more strongly.
-   Overlapping mixtures are not automatic general intelligence.
-3. **Embodiment vs count.** The circuit decides *what kind* of skill can exist; training
-   writes it; the body is how it shows up (drone stick vs walking fly). Neuron count is
-   not learning speed and not wall-clock efficiency.
+1. **New action.** Scene-up did not walk. After training it does. Extra cells
+   make that walk stronger (40 Hz vs 123 Hz on MiniCNS).
+2. **Stronger existing actions.** Lift and escape rates also rise after the
+   same pairing, more so with extra cells.
 
 ```bash
 python examples/07_malecns_expand.py
-flydrones expand --brain minicns --grow-kc 160
-flydrones expand --brain data/malecns_brain.npz --grow-kc 2000
+flydrones expand --brain minicns --grow 160
+flydrones expand --brain data/malecns_brain.npz --grow 2000
 ```
 
 `flydrones circuit --compare` and `examples/04_rewire.py` run the same stimulus battery on several MiniFly variants:

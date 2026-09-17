@@ -1,17 +1,14 @@
-"""MaleCNS research: extra cells, then train, then test new skills.
-
-Uses MiniCNS (MaleCNS type names) unless ``data/malecns_brain.npz`` exists.
+"""Grow the whole CNS, train, read motors.
 
     python examples/07_malecns_expand.py
-    flydrones expand --brain minicns --grow-kc 160 --report docs/growth/malecns_train.md
-    flydrones expand --brain data/malecns_brain.npz --grow-kc 2000
+    flydrones expand --brain minicns --grow 160 --report docs/growth/malecns_train.md
 """
 
 from pathlib import Path
 
 from flydrones.brain import build_minicns, load_connectome
 from flydrones.capacity import research_config
-from flydrones.learn import format_training_report, run_training_experiment
+from flydrones.learn import format_embodied_report, run_embodied_experiment
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "docs" / "growth" / "malecns_train.md"
@@ -26,8 +23,8 @@ def main() -> None:
         base = build_minicns()
         extra = 160
     cfg = research_config()
-    exp = run_training_experiment(base, cfg, extra_kc=extra, epochs=8, seed=0)
-    text = format_training_report(exp, title=f"MaleCNS training ({base.name})")
+    exp = run_embodied_experiment(base, cfg, extra=extra, epochs=8, seed=0)
+    text = format_embodied_report(exp, title=f"MaleCNS growth+train ({base.name})")
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(text, encoding="utf-8")
     print(text)

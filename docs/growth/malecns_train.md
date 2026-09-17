@@ -1,69 +1,19 @@
-# MaleCNS training (minicns-malecns-toy)
+# MaleCNS growth+train (minicns-malecns-toy)
 
-Untrained MBON readout = closed book. Nearest-centroid on KC rates is a sidecar
-that peeks at the pages without the fly having learned. Training writes KC→MBON.
+Cells are added like the whole connectome, not dumped onto one sense.
+Training writes scene-up onto lift and onto the legs, and loom onto escape. Numbers are motor rates.
 
-## 1. New ability the original wiring does not have
+## Original (242 neurons)
 
-Pair DM1 with reward and DM4 with punishment. The brain is not born knowing
-which smell is food. After training, preference is `MBON01 − MBON04`.
+- **before training**: climb→lift 64.3 Hz, climb→walk 0.0 Hz, loom→escape 85.7 Hz, poke-walk 202.7 Hz  (n=242)
+- **after training**: climb→lift 122.8 Hz, climb→walk 40.2 Hz, loom→escape 128.6 Hz, poke-walk 202.7 Hz  (n=242)
 
-### baseline 2-odor
+## +160 cells, whole CNS (402 neurons)
 
-- Kenyon cells: **80**
-- untrained MBON accuracy **0.00** (margin 0.0 Hz) — book closed
-- 1-epoch MBON accuracy **1.00** (margin 5.8 Hz) — sample efficiency
-- trained MBON accuracy **1.00** (margin 37.5 Hz) — book read
-- frozen KC nearest-centroid (sidecar, not the fly): 1.0
-- weight drift 1123.6 synapse-count units
+- **before training**: climb→lift 71.9 Hz, climb→walk 0.0 Hz, loom→escape 96.4 Hz, poke-walk 182.1 Hz  (n=402)
+- **after training**: climb→lift 140.3 Hz, climb→walk 123.2 Hz, loom→escape 167.9 Hz, poke-walk 192.0 Hz  (n=402)
 
-### +160 KC 2-odor
+Scene-up used to lift and not walk. After pairing it with the leg chain, the same visual cue drives walking (0.0→40.2 Hz original, 0.0→123.2 Hz with extra cells).
 
-- Kenyon cells: **240**
-- untrained MBON accuracy **0.25** (margin -7.5 Hz) — book closed
-- 1-epoch MBON accuracy **0.50** (margin 5.8 Hz) — sample efficiency
-- trained MBON accuracy **1.00** (margin 50.0 Hz) — book read
-- frozen KC nearest-centroid (sidecar, not the fly): 1.0
-- weight drift 1503.3 synapse-count units
-
-Extra Kenyon cells **without** training still fail. Same cells **with** training acquire the preference.
-
-The small mushroom body can already learn this 2-odor skill once you train it.
-The new ability is the association, not a new organ.
-
-After the same training, extra Kenyon cells separate good vs bad more strongly (MBON margin 50.0 vs 37.5 Hz).
-
-Neuron count is not learning speed: after 1 epoch the small mushroom body is ahead (1.00 vs 0.50). Extra cells help after they have been read, not by making the first pairing cheaper.
-
-## 2. Stronger after training (overlapping mixtures)
-
-Four blends that share glomeruli: DM1+DM2 / DM2+DM4 rewarded, DM1+DM3 / DM3+DM4 punished.
-Linear KC rank is the capacity; training is what spends it.
-
-### baseline mixtures
-
-- Kenyon cells: **80**
-- untrained MBON accuracy **0.00** (margin -1.7 Hz) — book closed
-- 1-epoch MBON accuracy **1.00** (margin 9.6 Hz) — sample efficiency
-- trained MBON accuracy **1.00** (margin 58.8 Hz) — book read
-- frozen KC nearest-centroid (sidecar, not the fly): 1.0
-- weight drift 1585.5 synapse-count units
-
-### +160 KC mixtures
-
-- Kenyon cells: **240**
-- untrained MBON accuracy **0.25** (margin -5.0 Hz) — book closed
-- 1-epoch MBON accuracy **0.88** (margin 5.8 Hz) — sample efficiency
-- trained MBON accuracy **1.00** (margin 67.1 Hz) — book read
-- frozen KC nearest-centroid (sidecar, not the fly): 1.0
-- weight drift 3120.9 synapse-count units
-
-Accuracy tied; the grown mushroom body separated good vs bad with a larger MBON margin (67.1 vs 58.8 Hz).
-
-### How to read this
-
-- **untrained**: extra cells do nothing useful at the MBON (unread book).
-- **1 epoch**: sample efficiency — more cells are not automatically faster to train.
-- **trained**: the fly now has an odor preference it was not wired with.
-- **frozen KC classifier**: a human-side linear probe. It is not learning inside the connectome.
-- The *kind* of skill is the circuit; *whether it is written* is training; *what it looks like in the world* is the body.
+Lift under the same cue: original 64.3→122.8 Hz, extra cells 71.9→140.3 Hz.
+Escape under loom: original 85.7→128.6 Hz, extra cells 96.4→167.9 Hz.

@@ -16,7 +16,7 @@
 - [ ] PyTorch / CUDA backend, full MaleCNS in real time on a laptop GPU
 - [x] KC→MBON three-factor plasticity (PPL1/PAM teaching signal on odor valence)
 - [ ] Dopamine (PPL1) punishment on collisions
-- [x] MaleCNS-first: extra Kenyon cells, then train, then test new skills (`flydrones expand`)
+- [x] MaleCNS-first: extra cells like the whole CNS, train, read motors (`flydrones expand`)
 - [ ] Drive early vision (L1-L3, Mi1, Tm3) from pixels instead of software optic flow
 
 ## Later

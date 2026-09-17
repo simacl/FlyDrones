@@ -13,19 +13,15 @@ All of that is open in this repo.
 So anyone can run the demo in seconds without a 1.2 GB download. Two commands switch to MaleCNS.
 
 **Does it learn?**
-Yes, at mushroom-body KC→MBON synapses. Pair an odor with reward or punishment
-and the MBON readout (`MBON01 − MBON04`) acquires a preference the untrained
-wiring did not have. Extra Kenyon cells without that pairing still do nothing
-useful — an unread book. Collision-triggered PPL1 on the drone is still on the
-roadmap. `flydrones expand --grow-kc 160`. [RESEARCH_MALECNS.md](RESEARCH_MALECNS.md).
+Yes. Pair a cue with a motor pathway and the rates change. Default research path
+trains scene-up onto lift and walking, and loom onto escape.
+`flydrones expand --grow 160`. [RESEARCH_MALECNS.md](RESEARCH_MALECNS.md).
 
 **Does adding neurons give the fly new skills or more intelligence?**
-After **training**, extra Kenyon cells can learn an odor preference the original
-connectome was not born with, and they can separate good vs bad more strongly.
-They do not sprout organs. Neuron count is not learning speed and not
-wall-clock efficiency. Which behaviour you *see* still depends on the body
-(drone stick vs walking fly). `--graft tail` is a leftover motor-pool probe, not
-the research question. [RESEARCH_MALECNS.md](RESEARCH_MALECNS.md).
+Add cells like the **whole CNS**, train, then read motors. On MiniCNS, scene-up
+did not walk (0 Hz). After pairing it with the leg chain, it walks; +160 cells
+walk harder (40 Hz vs 123 Hz). They are not dumped onto smell unless you pass
+`--grow-types KC`. `flydrones expand --grow 160`. [RESEARCH_MALECNS.md](RESEARCH_MALECNS.md).
 
 **Can I grow MaleCNS from 166k to 200k real cells?**
 Not from EM: that volume is already complete. `flydrones circuit --grow 34000 --brain data/malecns_brain.npz`

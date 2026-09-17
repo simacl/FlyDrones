@@ -4,7 +4,7 @@ from .expand import expand_compartment, graft_appendage
 from .growth import build_growth_report, write_growth_report
 from .lif import LIFNetwork, LIFParams
 from .minicns import build_minicns
-from .plasticity import KCMbonSynapses, ensure_kc_mbon_boutons
+from .plasticity import KCMbonSynapses, PathwaySynapses, ensure_kc_mbon_boutons, ensure_pathway_boutons
 from .rewire import (
     ablate,
     add_silent_neurons,
@@ -31,10 +31,12 @@ __all__ = [
     "build_minifly",
     "clone_neurons",
     "ensure_kc_mbon_boutons",
+    "ensure_pathway_boutons",
     "expand_compartment",
     "graft_appendage",
     "grow_like",
     "KCMbonSynapses",
+    "PathwaySynapses",
     "flip_signs",
     "load_connectome",
     "reverse_laterality",

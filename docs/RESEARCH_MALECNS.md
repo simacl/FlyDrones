@@ -1,77 +1,47 @@
-# MaleCNS research: extra cells, then train them
+# MaleCNS: add cells, train, read the body
 
-From this point the growth work is **MaleCNS-first**. MiniFly remains the flight demo.
-MiniCNS (`build_minicns`, type names aligned with MaleCNS) is the unit-test stand-in
-until `data/malecns_brain.npz` exists.
-
-Extra neurons with frozen weights are an **unread book**. This path trains
-KC→MBON synapses (PPL1/PAM teaching signal), then asks the mushroom body itself
-— `MBON01 − MBON04` — not a sidecar classifier on Kenyon-cell rates.
+MiniFly remains the flight demo. MiniCNS is the stand-in until
+`data/malecns_brain.npz` exists. Extra cells follow the **whole** connectome,
+not one sense.
 
 ```bash
-flydrones download malecns && flydrones build-brain --out data/malecns_brain.npz
-flydrones expand --brain data/malecns_brain.npz --grow-kc 2000 --report docs/growth/malecns_train.md
-# until the 1.2 GB download is present:
-flydrones expand --brain minicns --grow-kc 160
+flydrones expand --brain minicns --grow 160
 python examples/07_malecns_expand.py
 ```
 
 Measured MiniCNS run: [docs/growth/malecns_train.md](growth/malecns_train.md).
 
-## Question 1 — can extra neurons become a skill the original did not have?
+## What showed up
 
-Yes, after training: **odor valence**. Pair DM1 with reward and DM4 with punishment.
-The connectome is not born knowing which smell is food. That association is the new
-ability. (A tail or two extra legs were examples of *functions*, not organs to sprout.)
+Scene-up used to lift and not walk. After adding 160 cells like the whole CNS
+and pairing that visual cue with lift **and** the leg chain:
 
-| condition | n_KC | untrained | 1 epoch | trained | trained margin |
-|---|---:|---:|---:|---:|---:|
-| MiniCNS | 80 | 0.00 | **1.00** | **1.00** | 37.5 Hz |
-| +160 KC | 240 | 0.25 | 0.50 | **1.00** | **50.0 Hz** |
+| | n | climb→lift | climb→walk | loom→escape |
+|---|---:|---:|---:|---:|
+| original, untrained | 242 | 64.3 Hz | **0** | 85.7 Hz |
+| original, trained | 242 | 122.8 Hz | 40.2 Hz | 128.6 Hz |
+| +160 cells, untrained | 402 | 71.9 Hz | **0** | 96.4 Hz |
+| +160 cells, trained | 402 | 140.3 Hz | **123.2 Hz** | 167.9 Hz |
 
-On overlapping mixtures both brains reach accuracy 1.00 after training; extra Kenyon
-cells widen the margin (67.1 vs 58.8 Hz). Extra cells without the pairing still fail.
-After **1 epoch** the small mushroom body is already at 1.00; the grown one is at 0.50
-on the 2-odor task — more cells are not a cheaper first lesson.
+The new action is **walk to the same visual cue**. Extra cells without training
+still do not walk to it. Extra cells after training walk harder than the small
+brain after the same pairing.
 
-`grow_like` / `--grow-kc` only adds cells of types MaleCNS already has. It cannot
-invent a new body part. The new *skill* is written at existing KC→MBON boutons.
+## Where cells went
 
-## What a "capability" actually is
+`grow_like(+160)` draws types the way the connectome already does — vision,
+descending neurons, heading, legs, mushroom body — not “all Kenyon cells
+unless you said so”. `--grow-types` can restrict; the default does not.
 
-Three different knobs. Mixing them is how this project keeps answering the wrong question.
+## Training
 
-| knob | decides | does not decide |
-|---|---|---|
-| **circuit** (which cell types exist) | *what kind* of thing can be learned — no Kenyon cells, no odor memory | which body the animal has |
-| **training** (KC→MBON pairing) | *whether* that kind of thing is written | how fast the LIF runs |
-| **embodiment** (sensors + muscles + closed loop) | *what it looks like in the world* — walk away, climb, yaw a drone | whether the internal preference exists |
-| **neuron count** | after training: how cleanly patterns separate (MBON margin) | which skill exists; learning speed; wall-clock efficiency |
-
-The odor skill in this repo is still read at MBON in an open loop. Closing it onto legs (NeuroMechFly) or a drone stick would *express* the same valence as different behaviour. Same DNg02 already does that: throttle on a quad, left/right CPG on a walking fly. Growing cells does not pick the body. The body does not write the book.
-
-Neuron count is **not** efficiency. More membranes make every LIF step slower. A 1-epoch pairing is the sample-efficiency check: extra Kenyon cells are not cheaper to train; they help once they have been read.
-
-## Question 2 — can extra neurons make the brain more powerful after training?
-
-Only if you train them. More Kenyon cells raise the rank of the odor map
-(sparse coding). Training is what spends that rank at the MBON. Extra cells
-without the pairing step do not.
-
-On MiniCNS, the same 2-odor pairing produces a **larger MBON margin** with extra
-Kenyon cells. Overlapping mixtures are a separate test: extra cells are not
-automatic general intelligence, and they do not always win a harder set.
-
-The frozen KC nearest-centroid number is a human-side probe. It is not the fly
-having learned.
+Rate-based three-factor updates on the pathways that actually reach motors:
+T4c→VS→DNg02 (lift), T4c/VS/DNg02→T1→T2→T3 (walk), LPLC2→DNp01 (escape).
 
 ## Rule used
 
-Rate-based three-factor plasticity at existing KC→MBON synapses:
+Δw ∝ presynaptic eligibility × teaching valence. Existing boutons move;
+silent visual cells that had no leg boutons get some so the pairing has
+something to write. No intracellular dopamine cascade.
 
-- reward (PAM-like): potentiate KC→MBON01 (approach), depress KC→MBON04 (avoid)
-- punish (PPL1-like): the opposite
-- only boutons that already exist move; signs stay excitatory
-- the LIF has no intracellular dopamine cascade — PPL1/PAM are the teaching label
-
-Collision-triggered PPL1 on the drone is still a separate roadmap item.
+Collision-triggered PPL1 on the drone is still a separate item.

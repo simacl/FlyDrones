@@ -1,13 +1,7 @@
-"""Train mushroom-body valence, then ask the brain — not a sidecar classifier.
+"""Grow the whole CNS, train, then read the body.
 
-The untrained KC→MBON weights are an unread book. Training is reading it.
-Extra Kenyon cells only matter if they are trained too.
-
-Question 1 (new ability the wiring did not come with): approach one odor,
-avoid another. A fly is not born knowing which smell is food.
-
-Question 2 (stronger after training): same rule, then compare MBON margin
-and overlapping mixtures. Extra KCs raise the odor-map rank; training spends it.
+Increase is not “add Kenyon cells”. Training is not “only smell”.
+A skill is whatever motors do after the pairing: lift, walk, escape.
 """
 
 from __future__ import annotations
@@ -17,10 +11,15 @@ from typing import Any
 
 import numpy as np
 
-from .brain import Brain, Connectome
+from .brain import Brain, Connectome, grow_like
 from .brain.expand import expand_compartment
-from .brain.plasticity import KCMbonSynapses, ensure_kc_mbon_boutons
-from .capacity import odor_capacity, research_config
+from .brain.plasticity import (
+    KCMbonSynapses,
+    PathwaySynapses,
+    ensure_kc_mbon_boutons,
+    ensure_pathway_boutons,
+)
+from .capacity import odor_capacity, probe_effectors, research_config
 
 # valence +1 = reward / approach; −1 = punish / avoid
 SIMPLE_LESSONS: list[tuple[dict[str, float], float, str]] = [
@@ -302,4 +301,166 @@ def format_training_report(exp: dict[str, Any], title: str | None = None) -> str
         "- The *kind* of skill is the circuit; *whether it is written* is training; *what it looks like in the world* is the body.",
         "",
     ]
+    return "\n".join(lines)
+
+
+# --- whole-CNS growth, trained onto the body ---------------------------------
+
+# Same visual cue (scene-up) currently lifts via DNg02 and barely walks.
+# Pairing that cue with the leg chain is a new action on the existing body.
+BODY_PATHWAYS: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
+    (("^T4c$",), ("^VS$",)),
+    (("^VS$",), ("^DNg02",)),
+    (("^T4c$",), ("^T1_MN$",)),
+    (("^VS$",), ("^T1_MN$",)),
+    (("^DNg02",), ("^T1_MN$",)),
+    (("^T1_MN$",), ("^T2_MN$",)),
+    (("^T2_MN$",), ("^T3_MN$",)),
+    (("^LPLC2$",), ("^DNp01$", r"^GF$")),
+]
+
+CLIMB_STIM = {"T4c_L": 80.0, "T4c_R": 80.0}
+LOOM_STIM = {"LPLC2_L": 150.0, "LPLC2_R": 0.0}
+
+
+def _sum_rates(rates: dict[str, float], names: tuple[str, ...]) -> float:
+    return float(sum(rates.get(n, 0.0) for n in names))
+
+
+def body_snapshot(connectome: Connectome, cfg: dict | None = None, **probe_kw) -> dict[str, float]:
+    """What the body does: lift, walk under a visual cue, escape, walk-when-poked."""
+    rates = probe_effectors(connectome, cfg, **probe_kw)
+    climb, loom, walk = rates["climb"], rates["loom"], rates["walk"]
+    return {
+        "n": connectome.n,
+        "climb_lift_hz": _sum_rates(climb, ("DNg02_L", "DNg02_R")),
+        "climb_walk_hz": _sum_rates(climb, ("T3_MN_L", "T3_MN_R")),
+        "loom_escape_hz": max(loom.get("DNp01_L", 0.0), loom.get("DNp01_R", 0.0)),
+        "walk_hz": _sum_rates(walk, ("T3_MN_L", "T3_MN_R")),
+        "rest_lift_hz": _sum_rates(rates["rest"], ("DNg02_L", "DNg02_R")),
+        "rest_walk_hz": _sum_rates(rates["rest"], ("T3_MN_L", "T3_MN_R")),
+    }
+
+
+def train_body(
+    connectome: Connectome,
+    cfg: dict | None = None,
+    *,
+    epochs: int = 8,
+    eta: float = 1.8,
+    settle_ms: float = 120.0,
+    rest_ms: float = 50.0,
+    measure_ms: float = 200.0,
+    seed: int = 0,
+) -> tuple[Connectome, dict[str, Any]]:
+    """Pair scene-up with lift+walk, and loom with escape. Whole-CNS pathways."""
+    cfg = cfg or research_config()
+    trained = connectome.copy(f"{connectome.name}+body-trained")
+    added = 0
+    for pre, post in BODY_PATHWAYS:
+        added += ensure_pathway_boutons(trained, pre, post, syn=16.0, p=0.7, seed=seed)
+    locs = [PathwaySynapses(trained, pre, post) for pre, post in BODY_PATHWAYS]
+    brain = _brain(trained, cfg, seed)
+    brain.tick({}, settle_ms)
+    lessons = [(CLIMB_STIM, 1.0), (LOOM_STIM, 1.0)]
+    rng = np.random.default_rng(seed)
+    for _ in range(epochs):
+        rng.shuffle(lessons)
+        for stim, valence in lessons:
+            brain.net.reset()
+            brain.tick({}, rest_ms)
+            brain.tick(stim, measure_ms)
+            for loc in locs:
+                loc.update(brain.last_counts[loc.pre], valence, eta)
+                loc.commit(trained, brain.net)
+    log = {
+        "epochs": epochs,
+        "eta": eta,
+        "new_boutons": added,
+        "n_boutons": int(sum(loc.n_boutons for loc in locs)),
+        "weight_drift": float(sum(loc.drift() for loc in locs)),
+        "neurons": trained.n,
+    }
+    trained.meta = {**trained.meta, "body_trained": log}
+    return trained, log
+
+
+def run_embodied_experiment(
+    connectome: Connectome,
+    cfg: dict | None = None,
+    *,
+    extra: int = 160,
+    epochs: int = 8,
+    seed: int = 0,
+    type_pats: list[str] | None = None,
+) -> dict[str, Any]:
+    """Grow like the whole CNS (not one sense), train, read motors."""
+    cfg = cfg or research_config()
+    base = connectome.copy()
+    grown = grow_like(base, extra, min_pop=1, type_pats=type_pats, seed=seed) if extra else None
+    probe_kw = dict(settle_ms=200.0, measure_ms=280.0, rest_ms=80.0)
+
+    def arm(c: Connectome, label: str) -> dict[str, Any]:
+        before = body_snapshot(c, cfg, **probe_kw)
+        trained_c, log = train_body(c, cfg, epochs=epochs, seed=seed)
+        after = body_snapshot(trained_c, cfg, **probe_kw)
+        return {"label": label, "before": before, "after": after, "train": log, "n": c.n, "n_trained": trained_c.n}
+
+    out: dict[str, Any] = {"baseline": arm(base, "original"), "extra": extra}
+    if grown is not None:
+        out["grown"] = arm(grown, f"+{extra} cells (whole CNS)")
+        out["grown_n"] = grown.n
+    return out
+
+
+def format_embodied_report(exp: dict[str, Any], title: str | None = None) -> str:
+    def line(tag: str, snap: dict[str, float]) -> str:
+        return (
+            f"- **{tag}**: climb→lift {snap['climb_lift_hz']:.1f} Hz, "
+            f"climb→walk {snap['climb_walk_hz']:.1f} Hz, "
+            f"loom→escape {snap['loom_escape_hz']:.1f} Hz, "
+            f"poke-walk {snap['walk_hz']:.1f} Hz  (n={int(snap['n'])})"
+        )
+
+    lines = [
+        f"# {title or 'Increase the CNS, train, read the body'}",
+        "",
+        "Cells are added like the whole connectome, not dumped onto one sense.",
+        "Training writes scene-up onto lift and onto the legs, and loom onto escape. Numbers are motor rates.",
+        "",
+    ]
+    b = exp["baseline"]
+    lines += [
+        f"## Original ({b['n']} neurons)",
+        "",
+        line("before training", b["before"]),
+        line("after training", b["after"]),
+        "",
+    ]
+    if "grown" in exp:
+        g = exp["grown"]
+        lines += [
+            f"## +{exp['extra']} cells, whole CNS ({g['n']} neurons)",
+            "",
+            line("before training", g["before"]),
+            line("after training", g["after"]),
+            "",
+        ]
+        bw, aw = b["before"]["climb_walk_hz"], b["after"]["climb_walk_hz"]
+        gw, gaw = g["before"]["climb_walk_hz"], g["after"]["climb_walk_hz"]
+        if aw > bw + 2 or gaw > gw + 2:
+            lines += [
+                "Scene-up used to lift and not walk. After pairing it with the leg chain, "
+                f"the same visual cue drives walking ({bw:.1f}→{aw:.1f} Hz original, "
+                f"{gw:.1f}→{gaw:.1f} Hz with extra cells).",
+                "",
+            ]
+        bl, al = b["before"]["climb_lift_hz"], b["after"]["climb_lift_hz"]
+        gl, gal = g["before"]["climb_lift_hz"], g["after"]["climb_lift_hz"]
+        lines += [
+            f"Lift under the same cue: original {bl:.1f}→{al:.1f} Hz, extra cells {gl:.1f}→{gal:.1f} Hz.",
+            f"Escape under loom: original {b['before']['loom_escape_hz']:.1f}→{b['after']['loom_escape_hz']:.1f} Hz, "
+            f"extra cells {g['before']['loom_escape_hz']:.1f}→{g['after']['loom_escape_hz']:.1f} Hz.",
+            "",
+        ]
     return "\n".join(lines)

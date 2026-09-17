@@ -342,71 +342,54 @@ def _resolve_research_brain(source: str | None):
 
 
 def cmd_expand(args) -> int:
-    """MaleCNS research: train extra Kenyon cells, then test new skills."""
-    from .brain import expand_compartment, graft_appendage, grow_like
+    """Grow the whole CNS, train, read motors."""
+    from .brain import graft_appendage
     from .capacity import effector_verdict, probe_effectors, research_config
-    from .learn import format_training_report, run_training_experiment
+    from .learn import body_snapshot, format_embodied_report, run_embodied_experiment
 
     print(BANNER)
     cfg = research_config(getattr(args, "config", None))
     c = _resolve_research_brain(getattr(args, "brain", None))
     print(c.summary())
-    if args.grow:
-        pats = None
-        if args.grow_types:
-            pats = []
-            for raw in args.grow_types.split(","):
-                raw = raw.strip()
-                pats.append(raw if any(ch in raw for ch in ".*+?^$[]") else f"^{raw}")
-        c = grow_like(c, int(args.grow), type_pats=pats, min_pop=1 if pats else 5)
-        print("after grow_like:", c.summary())
-    extra_kc = int(args.grow_kc or 0)
-    if extra_kc:
-        grown = expand_compartment(c, "kenyon", extra_kc, seed=args.seed)
-        print("after Kenyon expansion:", grown.summary(), "KC", int((np.char.find(grown.types.astype(str), "KC") >= 0).sum()))
+    extra_n = int(args.grow) if args.grow is not None else 160
+    type_pats = None
+    if args.grow_types:
+        type_pats = []
+        for raw in args.grow_types.split(","):
+            raw = raw.strip()
+            type_pats.append(raw if any(ch in raw for ch in ".*+?^$[]") else f"^{raw}")
     if args.graft:
-        from .capacity import odor_capacity
-
         grafted = c
         for kind in args.graft:
             grafted = graft_appendage(grafted, kind, seed=args.seed)
             print(f"after graft {kind}:", grafted.summary())
         rates = probe_effectors(grafted, cfg)
         verdict = effector_verdict(grafted, rates)
-        print("\n(graft is not the research question; kept as a motor-pool probe)")
+        print("\n(graft probe)")
         for name, v in verdict.items():
-            extra = f" loom={v.get('loom_hz', 0):.1f}Hz climb={v.get('climb_hz', 0):.1f}Hz"
+            bit = f" loom={v.get('loom_hz', 0):.1f}Hz climb={v.get('climb_hz', 0):.1f}Hz"
             if "walk_hz" in v:
-                extra += f" walk={v['walk_hz']:.1f}Hz"
+                bit += f" walk={v['walk_hz']:.1f}Hz"
             copy = f" copy_of={v['copy_of']} r={v['corr']:.2f}" if v.get("copy_of") else ""
-            print(f"  {name:12s} {v['status']:10s}{copy}{extra}")
-        cap = odor_capacity(grafted, cfg, seed=args.seed)
-        print(f"  sidecar KC classifier n_KC={cap.get('n_kc')} accuracy={cap.get('accuracy')}")
+            print(f"  {name:12s} {v['status']:10s}{copy}{bit}")
     if args.train:
-        print("\nTraining KC→MBON (unread book vs read book)…")
-        exp = run_training_experiment(
-            c,
-            cfg,
-            extra_kc=extra_kc or 160,
-            epochs=args.epochs,
-            seed=args.seed,
-        )
-        text = format_training_report(exp, title=f"MaleCNS training: {c.name}")
-        print(text)
+        print(f"\nGrow {extra_n} cells like the whole CNS, train, read the body…")
+        exp = run_embodied_experiment(c, cfg, extra=extra_n, epochs=args.epochs, seed=args.seed, type_pats=type_pats)
+        text_out = format_embodied_report(exp, title=f"MaleCNS growth+train: {c.name}")
+        print(text_out)
         if args.report:
-            from pathlib import Path
+            from pathlib import Path as P
 
-            path = Path(args.report)
+            path = P(args.report)
             path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(text, encoding="utf-8")
+            path.write_text(text_out, encoding="utf-8")
             print(f"\nreport -> {path}")
-    elif args.report and args.graft:
-        from pathlib import Path
-
-        path = Path(args.report)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text("# graft probe (no training)\n", encoding="utf-8")
-        print(f"\nreport -> {path}")
+    else:
+        snap = body_snapshot(c, cfg)
+        print(
+            f"untrained body: climb→lift {snap['climb_lift_hz']:.1f} Hz, "
+            f"climb→walk {snap['climb_walk_hz']:.1f} Hz, loom→escape {snap['loom_escape_hz']:.1f} Hz"
+        )
     return 0
 
 
@@ -519,16 +502,16 @@ def build_parser() -> argparse.ArgumentParser:
 
     sp = sub.add_parser(
         "expand",
-        help="MaleCNS research: grow Kenyon cells, train KC→MBON, test new odor skills",
+        help="MaleCNS research: grow the whole CNS, train, read motors",
     )
     common(sp)
-    sp.add_argument("--graft", action="append", choices=["tail", "extra_legs"], help="legacy motor-pool probe (not the research question)")
-    sp.add_argument("--grow", type=int, help="grow N cells by resampling existing types")
+    sp.add_argument("--graft", action="append", choices=["tail", "extra_legs"], help="optional motor-pool probe")
+    sp.add_argument("--grow", type=int, help="how many extra cells (default 160, whole-CNS types)")
     sp.add_argument("--grow-types", dest="grow_types", help="restrict --grow, comma-separated")
-    sp.add_argument("--grow-kc", type=int, help="grow N extra Kenyon cells, then train them")
-    sp.add_argument("--train", dest="train", action="store_true", default=True, help="train KC→MBON (default)")
-    sp.add_argument("--no-train", dest="train", action="store_false", help="skip training (unread-book baseline only)")
-    sp.add_argument("--epochs", type=int, default=8, help="pairing epochs for KC→MBON")
+    sp.add_argument("--grow-kc", type=int, help="unused; extra cells are whole-CNS unless --grow-types")
+    sp.add_argument("--train", dest="train", action="store_true", default=True, help="train then read the body (default)")
+    sp.add_argument("--no-train", dest="train", action="store_false", help="skip training")
+    sp.add_argument("--epochs", type=int, default=8, help="pairing epochs")
     sp.add_argument("--seed", type=int, default=0)
     sp.add_argument("--report", help="write a markdown verdict")
     sp.set_defaults(func=cmd_expand)

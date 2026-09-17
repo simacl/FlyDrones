@@ -7,7 +7,7 @@ from flydrones.brain import build_minicns, expand_compartment
 from flydrones.brain.lif import LIFNetwork, LIFParams
 from flydrones.capacity import research_config
 from flydrones.cli import main
-from flydrones.learn import SIMPLE_LESSONS, evaluate_valence, train_odor_valence
+from flydrones.learn import SIMPLE_LESSONS, body_snapshot, evaluate_valence, train_body, train_odor_valence
 
 
 def test_untrained_mbon_has_no_preference():
@@ -38,6 +38,18 @@ def test_extra_kc_untrained_is_still_unread():
     assert ev["accuracy"] <= 0.5
 
 
+def test_scene_up_walks_after_body_training():
+    c = build_minicns()
+    cfg = research_config()
+    before = body_snapshot(c, cfg, settle_ms=120, measure_ms=200, rest_ms=50)
+    assert before["climb_walk_hz"] < 2
+    trained, log = train_body(c, cfg, epochs=6, eta=1.8, settle_ms=80, rest_ms=30, measure_ms=160, seed=0)
+    assert log["weight_drift"] > 1.0
+    after = body_snapshot(trained, cfg, settle_ms=120, measure_ms=200, rest_ms=50)
+    assert after["climb_walk_hz"] > 4
+    assert after["climb_lift_hz"] > before["climb_lift_hz"]
+
+
 def test_set_connectivity_changes_propagation():
     w0 = sparse.csc_matrix((np.zeros(2, np.float32), (np.array([1, 2]), np.array([0, 1]))), shape=(3, 3))
     w1 = sparse.csc_matrix((np.full(2, 200.0, np.float32), (np.array([1, 2]), np.array([0, 1]))), shape=(3, 3))
@@ -55,4 +67,4 @@ def test_cli_expand_train(capsys):
     assert main(["expand", "--brain", "minicns", "--no-train", "--graft", "tail"]) == 0
     out = capsys.readouterr().out
     assert "tail" in out.lower()
-    assert "n_KC" in out or "Kenyon" in out or "sidecar" in out.lower()
+    assert "untrained body" in out.lower() or "climb" in out.lower()
