@@ -325,6 +325,95 @@ def cmd_circuit(args) -> int:
     return 0
 
 
+def _resolve_research_brain(source: str | None):
+    from pathlib import Path
+
+    from .brain import build_minicns, load_connectome
+
+    if source:
+        return load_connectome(source)
+    npz = Path("data/malecns_brain.npz")
+    if npz.exists():
+        print(f"using MaleCNS {npz}")
+        return load_connectome(npz)
+    print("no data/malecns_brain.npz — using MiniCNS (MaleCNS-named toy). Build the real brain with:")
+    print("  flydrones download malecns && flydrones build-brain --out data/malecns_brain.npz")
+    return build_minicns()
+
+
+def cmd_expand(args) -> int:
+    """MaleCNS research: graft a tail / extra legs, or grow Kenyon-cell capacity."""
+    from .brain import expand_compartment, graft_appendage, grow_like
+    from .capacity import effector_verdict, odor_capacity, probe_effectors, research_config
+
+    print(BANNER)
+    cfg = research_config(getattr(args, "config", None))
+    c = _resolve_research_brain(getattr(args, "brain", None))
+    print(c.summary())
+    if args.grow:
+        pats = None
+        if args.grow_types:
+            pats = []
+            for raw in args.grow_types.split(","):
+                raw = raw.strip()
+                pats.append(raw if any(ch in raw for ch in ".*+?^$[]") else f"^{raw}")
+        c = grow_like(c, int(args.grow), type_pats=pats, min_pop=1 if pats else 5)
+        print("after grow_like:", c.summary())
+    if args.grow_kc:
+        c = expand_compartment(c, "kenyon", int(args.grow_kc), seed=args.seed)
+        print("after Kenyon expansion:", c.summary(), "KC", int((np.char.find(c.types.astype(str), "KC") >= 0).sum()))
+    if args.graft:
+        for kind in args.graft:
+            c = graft_appendage(c, kind, seed=args.seed)
+            print(f"after graft {kind}:", c.summary())
+    rates = probe_effectors(c, cfg)
+    verdict = effector_verdict(c, rates)
+    print("\n1. New ability (grafted effectors)")
+    for name, v in verdict.items():
+        extra = f" loom={v.get('loom_hz', 0):.1f}Hz climb={v.get('climb_hz', 0):.1f}Hz"
+        if "walk_hz" in v:
+            extra += f" walk={v['walk_hz']:.1f}Hz"
+        copy = f" copy_of={v['copy_of']} r={v['corr']:.2f}" if v.get("copy_of") else ""
+        print(f"  {name:12s} {v['status']:10s}{copy}{extra}")
+        print(f"               {v['note']}")
+    cap = odor_capacity(c, cfg, seed=args.seed)
+    print("\n2. Capacity / intelligence (Kenyon cells, odor nearest-centroid)")
+    print(f"  n_KC={cap.get('n_kc')}  accuracy={cap.get('accuracy')}  pattern_rank={cap.get('pattern_rank')}")
+    if args.report:
+        from pathlib import Path
+
+        path = Path(args.report)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        lines = [
+            f"# MaleCNS expansion: {c.name}",
+            "",
+            c.summary(),
+            "",
+            "## 1. Novel effectors",
+            "",
+        ]
+        for name, v in verdict.items():
+            lines += [f"### {name}", "", f"- status: **{v['status']}**", f"- {v['note']}", ""]
+            if v.get("copy_of"):
+                lines.append(f"- copies `{v['copy_of']}` (r={v['corr']:.2f})")
+            lines.append(f"- loom {v.get('loom_hz', 0):.1f} Hz, climb {v.get('climb_hz', 0):.1f} Hz")
+            lines.append("")
+        lines += [
+            "## 2. Kenyon-cell capacity",
+            "",
+            f"- n_KC: {cap.get('n_kc')}",
+            f"- odor accuracy: {cap.get('accuracy')}",
+            f"- pattern rank: {cap.get('pattern_rank')}",
+            "",
+            "grow_like of existing types cannot invent TailMN. graft_appendage can add a muscle that copies DNp01 or T3_MN.",
+            "More KCs raise odor-pattern rank/accuracy; they are not general intelligence.",
+            "",
+        ]
+        path.write_text("\n".join(lines), encoding="utf-8")
+        print(f"\nreport -> {path}")
+    return 0
+
+
 def _write_log(path, rows) -> None:
     if not rows:
         return
@@ -431,6 +520,19 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--settle-ms", type=float, default=800)
     sp.add_argument("--measure-ms", type=float, default=800)
     sp.set_defaults(func=cmd_circuit)
+
+    sp = sub.add_parser(
+        "expand",
+        help="MaleCNS research: graft a tail/extra legs, or grow Kenyon-cell capacity",
+    )
+    common(sp)
+    sp.add_argument("--graft", action="append", choices=["tail", "extra_legs"], help="new motor pool the fly never had (repeatable)")
+    sp.add_argument("--grow", type=int, help="grow N cells by resampling existing types (cannot invent a tail)")
+    sp.add_argument("--grow-types", dest="grow_types", help="restrict --grow, comma-separated")
+    sp.add_argument("--grow-kc", type=int, help="grow N extra Kenyon cells (capacity / intelligence probe)")
+    sp.add_argument("--seed", type=int, default=0)
+    sp.add_argument("--report", help="write a markdown verdict")
+    sp.set_defaults(func=cmd_expand)
     return p
 
 

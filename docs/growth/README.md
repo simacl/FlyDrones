@@ -13,6 +13,7 @@ MaleCNS v1.0 已经是一只雄蝇的完整中枢（~166k）。这里的 34k 新
 
 ```bash
 python examples/06_grow_real.py
+python examples/07_malecns_expand.py
 # 或
 flydrones circuit --grow 200 --grow-report docs/growth/minifly_plus200
 ```

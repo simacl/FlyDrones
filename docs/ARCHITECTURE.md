@@ -35,7 +35,10 @@ Code: [`runtime.py`](../src/flydrones/runtime.py).
 | `motor/descending.py` | DNg02 / stick → NeuroMechFly left/right CPG drive | `from_dng02`, `from_command` |
 | `calibrate.py` | stimulus battery + ridge regression read-out | `calibrate` |
 | `circuit.py` | grow / lesion / rewire MiniFly and probe descending neurons | `probe`, `preset_connectomes` |
-| `brain/rewire.py` | scale synapses, ablate, flip signs, reverse laterality, shuffle, grow_like | `ablate`, `shuffle_wiring`, `grow_like` |
+| `brain/rewire.py` | scale synapses, ablate, flip, reverse laterality, shuffle, grow_like | `ablate`, `grow_like`, `clone_neurons` |
+| `brain/minicns.py` | MaleCNS-named toy: MB + CX + T1–T3 legs + flight DN | `build_minicns` |
+| `brain/expand.py` | graft new motor pools; grow a compartment | `graft_appendage`, `expand_compartment` |
+| `capacity.py` | odor nearest-centroid + effector verdict | `odor_capacity`, `probe_effectors` |
 | `brain/growth.py` | per-neuron census of a grown cohort (markdown + CSV) | `build_growth_report`, `write_growth_report` |
 | `viz/dashboard.py` | matplotlib dashboard, OpenCV window, GIF writer | `Dashboard` |
 

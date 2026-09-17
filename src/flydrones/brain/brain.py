@@ -10,17 +10,21 @@ import numpy as np
 
 from .connectome import Connectome, GroupSpec
 from .lif import LIFNetwork, LIFParams
+from .minicns import build_minicns
 from .synthetic import build_minifly
 
 
 def load_connectome(source: str | Path) -> Connectome:
-    if str(source).lower() in ("minifly", "synthetic", "mini"):
+    key = str(source).lower()
+    if key in ("minifly", "synthetic", "mini"):
         return build_minifly()
+    if key in ("minicns", "cns", "male-toy"):
+        return build_minicns()
     path = Path(source)
     if not path.exists():
         raise FileNotFoundError(
             f"brain file {path} not found. Run `flydrones download malecns` and "
-            "`flydrones build-brain` first, or use brain.source: minifly"
+            "`flydrones build-brain` first, or use brain.source: minicns / minifly"
         )
     return Connectome.load(path)
 

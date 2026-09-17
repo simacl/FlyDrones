@@ -15,6 +15,12 @@ So anyone can run the demo in seconds without a 1.2 GB download. Two commands sw
 **Does it learn?**
 Not yet. The connectome weights are fixed. Dopamine-based plasticity (as in DOOMFLY) is on the roadmap.
 
+**Does adding neurons give the fly a tail, extra legs, or more intelligence?**
+`grow_like` cannot invent organs the fly lacks. `flydrones expand --graft tail --graft extra_legs`
+adds new motor pools on old commands (escape / hindleg copies). `--grow-kc` raises mushroom-body
+odor capacity, not general intelligence. MaleCNS-first from here: `flydrones expand --brain data/malecns_brain.npz`
+or `--brain minicns` until the 1.2 GB download is built. [RESEARCH_MALECNS.md](RESEARCH_MALECNS.md).
+
 **Can I grow MaleCNS from 166k to 200k real cells?**
 Not from EM: that volume is already complete. `flydrones circuit --grow 34000 --brain data/malecns_brain.npz`
 resamples real type-to-type synapses so the extra cells have the same partners, signs and degrees as

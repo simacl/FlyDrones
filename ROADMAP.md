@@ -15,6 +15,7 @@
 ## 0.3
 - [ ] PyTorch / CUDA backend, full MaleCNS in real time on a laptop GPU
 - [ ] Dopamine (PPL1) punishment on collisions, KC→MBON plasticity
+- [x] MaleCNS-first expansion probes: graft tail / extra legs vs Kenyon-cell capacity (`flydrones expand`)
 - [ ] Drive early vision (L1-L3, Mi1, Tm3) from pixels instead of software optic flow
 
 ## Later

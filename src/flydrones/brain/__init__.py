@@ -1,7 +1,9 @@
 from .brain import Brain, load_connectome
 from .connectome import Connectome, GroupSpec, build_malecns
+from .expand import expand_compartment, graft_appendage
 from .growth import build_growth_report, write_growth_report
 from .lif import LIFNetwork, LIFParams
+from .minicns import build_minicns
 from .rewire import (
     ablate,
     add_silent_neurons,
@@ -24,8 +26,11 @@ __all__ = [
     "add_silent_neurons",
     "build_growth_report",
     "build_malecns",
+    "build_minicns",
     "build_minifly",
     "clone_neurons",
+    "expand_compartment",
+    "graft_appendage",
     "grow_like",
     "flip_signs",
     "load_connectome",
@@ -34,3 +39,4 @@ __all__ = [
     "shuffle_wiring",
     "write_growth_report",
 ]
+
