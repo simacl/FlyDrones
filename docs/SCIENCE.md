@@ -181,17 +181,16 @@ flydrones expand --brain minicns --grow 160
 flydrones expand --brain data/malecns_brain.npz --grow 2000
 ```
 
-### After development: hit a wall, dodge, ask again
+### After development: experience changes usage
 
 Development teaches how to drive the legs. `examples/08_online.py` then puts
-the animal in an arena. Contact (mdIV), halt (chordotonal), loom (LPLC2) and
-unload enter the brain. PPL1 (and MBON rates) supply the teaching factor —
-there is no `if hit: −1`. First approach hits and dodges. If that writing
-stays on, the next approach does not hit.
+the animal in an environment. Contact (mdIV), halt (chordotonal), loom (LPLC2)
+and unload enter the brain. PPL1 supplies the teaching factor — there is no
+`if hit: −1`. Compare the first half of a stretch with the second.
 
-Measured MiniCNS +80 (340 cells): first approach hits and dodges on both arms.
-Second approach hits if the wall event was not written, and does not hit if
-PPL1 judged it ([docs/growth/malecns_life.md](growth/malecns_life.md)).
+Measured MiniCNS +80 (340 cells): frozen usage stays (contacts 2→3, walk
+12.3→11.4 Hz). Online usage shifts (contacts 2→1, walk 11.1→6.1 Hz)
+([docs/growth/malecns_life.md](growth/malecns_life.md)).
 
 ```bash
 python examples/08_online.py

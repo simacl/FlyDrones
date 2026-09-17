@@ -234,7 +234,7 @@ Read [docs/SAFETY.md](docs/SAFETY.md) before the first real flight.
 - [ ] PyTorch / CUDA backend for full-brain real time on a laptop GPU
 - [ ] Dopamine (PPL1) reinforcement on crashes, like DOOMFLY
 - [x] Grow the whole CNS, train onto motors (`examples/07_malecns_expand.py`)
-- [x] Hit a wall, dodge, ask if next time still hits (`examples/08_online.py`)
+- [x] Experience changes usage after development (`examples/08_online.py`)
 - [ ] ROS 2 node
 - [ ] Onboard: brain core on a Raspberry Pi 5 carried by the drone
 

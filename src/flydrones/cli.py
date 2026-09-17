@@ -398,7 +398,7 @@ def cmd_expand(args) -> int:
         if extra_n:
             body = grow_like(c, extra_n, min_pop=1, type_pats=type_pats, seed=args.seed)
             print("after grow for life:", body.summary())
-        print("\nArena: hit a wall, dodge, ask if the next approach still hits…")
+        print("\nEnvironment: use the body, see if experience changes usage…")
         life = run_online_experiment(body, cfg, develop=bool(args.train), epochs=args.epochs, seed=args.seed)
         life_text = format_online_report(life, title=f"Online experience: {body.name}")
         print(life_text)
@@ -533,7 +533,7 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--epochs", type=int, default=8, help="pairing epochs")
     sp.add_argument("--seed", type=int, default=0)
     sp.add_argument("--report", help="write a markdown verdict")
-    sp.add_argument("--life", action="store_true", help="after development: hit a wall, dodge, ask if next time still hits")
+    sp.add_argument("--life", action="store_true", help="after development: use the body, experience keeps writing")
     sp.set_defaults(func=cmd_expand)
     return p
 

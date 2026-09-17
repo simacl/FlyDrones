@@ -1,8 +1,8 @@
-"""Hit a wall in the world, dodge, ask whether the next approach still hits.
+"""After development: keep using the body; experience keeps writing.
 
-Development teaches how to drive the legs. This module does not pair that
-again. The animal walks in an arena. Collision and dodge are lived events.
-Those events keep writing — they are not frozen into a lesson.
+Development teaches how to drive the legs. This module puts the animal in an
+environment and leaves the three-factor rule on. Teaching valence comes from
+PPL1 reading body channels (contact, halt, unload), not a programmed hit flag.
 """
 
 from __future__ import annotations
@@ -24,8 +24,8 @@ ESCAPE_PATHWAYS = BODY_PATHWAYS[-1:]
 
 ARENA = 1.0
 START_X = 0.50
-START_Y = 0.18
-START_HEADING = 0.5 * math.pi
+START_Y = 0.35
+START_HEADING = 0.35 * math.pi
 WALL = 0.02
 
 
@@ -44,7 +44,6 @@ def neural_verdict(rates: dict[str, float], rest: dict[str, float] | None = None
     md = ch("mdIV_L", "mdIV_R")
     chd = ch("chordotonal_L", "chordotonal_R")
     unl = ch("unloading")
-    # Only judge while body channels are speaking. PPL1/MBON then pick the sign.
     if md + unl < 20.0:
         return 0.0
     pain = ch("PPL1") + 0.5 * md
@@ -121,29 +120,41 @@ class OnlineLearner:
         return neural_verdict(self.brain.last_rates, rest)
 
 
+def _ahead(x: float, y: float, heading: float) -> float:
+    dx, dy = math.cos(heading), math.sin(heading)
+    hits = []
+    if dx > 1e-6:
+        hits.append((ARENA - x) / dx)
+    if dx < -1e-6:
+        hits.append(x / -dx)
+    if dy > 1e-6:
+        hits.append((ARENA - y) / dy)
+    if dy < -1e-6:
+        hits.append(y / -dy)
+    return float(min((t for t in hits if t > 0.0), default=ARENA))
+
+
 @dataclass
 class Body:
     x: float = START_X
     y: float = START_Y
     heading: float = START_HEADING
     hits: int = 0
-    dodged: bool = False
     path: list[tuple[float, float, float]] = field(default_factory=list)
     contact: float = 0.0
     halt: float = 0.0
     unload: float = 0.0
 
     @property
-    def wall_dist(self) -> float:
+    def edge_dist(self) -> float:
         return min(self.x, self.y, ARENA - self.x, ARENA - self.y)
 
     def senses(self, speed: float, prev_speed: float, hit: bool, away: bool) -> dict[str, float]:
-        """World + body. Contact, halt, unload, loom — not a punishment label."""
-        face_north = float(max(0.0, math.sin(self.heading)))
-        t4 = 80.0 * face_north
-        dist_n = max(ARENA - self.y, 0.02)
-        closing = float(max(0.0, speed * math.sin(self.heading)))
-        loom = float(min(160.0, 12.0 * closing / dist_n)) if closing > 0.02 else 0.0
+        face_up = float(max(0.0, math.sin(self.heading)))
+        t4 = 40.0 + 50.0 * face_up
+        dist = max(_ahead(self.x, self.y, self.heading), 0.02)
+        closing = float(max(0.0, speed))
+        loom = float(min(160.0, 12.0 * closing / dist)) if closing > 0.02 else 0.0
         self.contact = 1.0 if hit else 0.62 * self.contact
         self.halt = max(float(max(0.0, prev_speed - speed)) / 0.35, 0.55 * self.halt)
         self.unload = 1.0 if away else 0.55 * self.unload
@@ -169,58 +180,75 @@ class Body:
         speed = 0.018 * (walk_l + walk_r)
         if esc > 50.0:
             speed -= 0.003 * (esc - 50.0)
-        before_n = ARENA - self.y
+        before = self.edge_dist
         self.heading += turn * dt
         self.x += speed * math.cos(self.heading) * dt
         self.y += speed * math.sin(self.heading) * dt
         hit = False
         if self.x < WALL:
-            self.x = WALL + 0.04
-            self.heading = 0.0
+            self.x = WALL + 0.03
+            self.heading = math.pi - self.heading
             hit = True
         elif self.x > ARENA - WALL:
-            self.x = ARENA - WALL - 0.04
-            self.heading = math.pi
+            self.x = ARENA - WALL - 0.03
+            self.heading = math.pi - self.heading
             hit = True
         if self.y < WALL:
-            self.y = WALL + 0.04
-            self.heading = 0.5 * math.pi
+            self.y = WALL + 0.03
+            self.heading = -self.heading
             hit = True
         elif self.y > ARENA - WALL:
-            self.y = ARENA - 0.16
-            self.heading = -0.5 * math.pi
+            self.y = ARENA - WALL - 0.03
+            self.heading = -self.heading
             hit = True
         if hit:
             self.hits += 1
-        away = (ARENA - self.y) > before_n + 1e-4
-        if self.hits and away:
-            self.dodged = True
+        away = self.edge_dist > before + 1e-4
         self.path.append((self.x, self.y, speed))
         return hit, away
 
 
-def _approach(
-    brain: Brain,
-    learner: OnlineLearner,
+def _usage(log: list[dict[str, Any]], t0: float, t1: float) -> dict[str, float]:
+    rows = [r for r in log if t0 - 1e-9 <= r["t"] < t1 - 1e-9]
+    if not rows:
+        return {"contacts": 0.0, "walk": 0.0, "edge": 0.0, "seconds": 0.0}
+    return {
+        "contacts": float(sum(1 for r in rows if r["contacted"])),
+        "walk": float(np.mean([r["walk"] for r in rows])),
+        "edge": float(np.mean([1.0 if r["edge"] < 0.12 else 0.0 for r in rows])),
+        "seconds": float(rows[-1]["t"] - rows[0]["t"] + 1e-9),
+    }
+
+
+def live_once(
+    connectome: Connectome,
+    cfg: dict | None = None,
     *,
-    online: bool,
-    dt_ms: float,
-    seconds: float,
+    online: bool = True,
+    dt_ms: float = 50.0,
+    eta: float = 0.25,
+    seed: int = 0,
+    seconds: float = 8.0,
+    **_ignored: Any,
 ) -> dict[str, Any]:
+    """One stretch in the environment. Pose is not reset. Weights write if online."""
+    cfg = cfg or research_config()
+    lived = connectome.copy(f"{connectome.name}+{'online' if online else 'frozen'}")
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        brain = Brain(lived, cfg, seed=seed)
+    learner = OnlineLearner(brain, eta=eta if online else 0.0, seed=seed)
     body = Body()
     dt = dt_ms / 1000.0
     t = 0.0
     speed = 0.0
     prev_speed = 0.0
     hit, away = False, False
-    felt_pain = False
     log: list[dict[str, Any]] = []
     brain.tick({}, 80.0)
     rest = dict(brain.last_rates)
     while t < seconds - 1e-9:
         stim = body.senses(speed, prev_speed, hit, away)
-        if body.contact > 0.4:
-            felt_pain = True
         rates = brain.tick(stim, dt_ms)
         learner.observe(dt)
         v = neural_verdict(rates, rest)
@@ -235,62 +263,31 @@ def _approach(
                 "x": body.x,
                 "y": body.y,
                 "hits": body.hits,
+                "contacted": bool(hit),
                 "walk": 0.5 * (rates.get("T3_MN_L", 0.0) + rates.get("T3_MN_R", 0.0)),
                 "escape": max(rates.get("DNp01_L", 0.0), rates.get("DNp01_R", 0.0)),
-                "wall": body.wall_dist,
+                "edge": body.edge_dist,
                 "verdict": v,
                 "ppl1": float(rates.get("PPL1", 0.0)),
             }
         )
         t += dt
-        if felt_pain and body.dodged and body.contact < 0.08:
-            break
-    return {
-        "hits": body.hits,
-        "dodged": bool(body.dodged and body.hits > 0),
-        "min_wall": float(min((row["wall"] for row in log), default=body.wall_dist)),
-        "min_north": float(min((ARENA - row["y"] for row in log), default=ARENA - body.y)),
-        "end_y": body.y,
-        "end_x": body.x,
-        "seconds": t,
-        "path": log[:: max(1, len(log) // 30)],
-        "walk_mean": float(np.mean([row["walk"] for row in log])) if log else 0.0,
-        "escape_max": float(max((row["escape"] for row in log), default=0.0)),
-        "verdict_min": float(min((row["verdict"] for row in log), default=0.0)),
-        "ppl1_max": float(max((row["ppl1"] for row in log), default=0.0)),
-    }
-
-
-def live_once(
-    connectome: Connectome,
-    cfg: dict | None = None,
-    *,
-    online: bool = True,
-    dt_ms: float = 50.0,
-    eta: float = 1.2,
-    seed: int = 0,
-    approach_s: float = 6.0,
-    **_ignored: Any,
-) -> dict[str, Any]:
-    """Two approaches at the same wall. Pose resets. Weights do not, if online."""
-    cfg = cfg or research_config()
-    lived = connectome.copy(f"{connectome.name}+{'online' if online else 'frozen'}")
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        brain = Brain(lived, cfg, seed=seed)
-    learner = OnlineLearner(brain, eta=eta if online else 0.0, seed=seed)
-    first = _approach(brain, learner, online=online, dt_ms=dt_ms, seconds=approach_s)
-    second = _approach(brain, learner, online=online, dt_ms=dt_ms, seconds=approach_s)
+    mid = seconds * 0.5
+    early = _usage(log, 0.0, mid)
+    late = _usage(log, mid, seconds + 1e-6)
     return {
         "online": online,
         "n": lived.n,
-        "hits": int(first["hits"] + second["hits"]),
-        "first": first,
-        "second": second,
+        "hits": body.hits,
+        "early": early,
+        "late": late,
         "n_updates": learner.n_updates,
         "drift": learner.drift(),
         "connectome": lived,
-        "hit_again": bool(second["hits"] > 0),
+        "verdict_min": float(min((row["verdict"] for row in log), default=0.0)),
+        "ppl1_max": float(max((row["ppl1"] for row in log), default=0.0)),
+        "path": log[:: max(1, len(log) // 40)],
+        "usage_shifted": bool(late["contacts"] + 1e-9 < early["contacts"] or abs(late["walk"] - early["walk"]) > 2.0),
     }
 
 
@@ -301,9 +298,9 @@ def run_online_experiment(
     develop: bool = True,
     epochs: int = 6,
     seed: int = 0,
-    eta: float = 1.2,
+    eta: float = 0.25,
 ) -> dict[str, Any]:
-    """Develop control, then two approaches at the wall."""
+    """Develop control, then one stretch with writing off vs on."""
     cfg = cfg or research_config()
     start = connectome.copy()
     devel_log: dict[str, Any] = {}
@@ -321,27 +318,26 @@ def run_online_experiment(
 
 def format_online_report(exp: dict[str, Any], title: str | None = None) -> str:
     def arm(tag: str, run: dict[str, Any]) -> list[str]:
-        a, b = run["first"], run["second"]
-        again = "还会撞" if run["hit_again"] else "没再撞"
+        a, b = run["early"], run["late"]
         return [
             f"## {tag}",
             "",
-            f"- 第一次：撞 {a['hits']} 次，躲开了={a['dodged']}，离北墙最近 {a['min_north']:.3f}，判定最低 {a.get('verdict_min', 0):.2f}",
-            f"- 第二次：撞 {b['hits']} 次，离北墙最近 {b['min_north']:.3f} → **{again}**",
+            f"- 前半：接触 {a['contacts']:.0f}，走 {a['walk']:.1f} Hz，贴边 {a['edge']:.2f}",
+            f"- 后半：接触 {b['contacts']:.0f}，走 {b['walk']:.1f} Hz，贴边 {b['edge']:.2f}",
+            f"- 用法变了：{run['usage_shifted']}；判定最低 {run['verdict_min']:.2f}；PPL1 最高 {run['ppl1_max']:.1f}",
             "",
         ]
 
     fr, on = exp["frozen"], exp["online"]
     lines = [
-        f"# {title or '场地里撞墙，躲开，下次还会不会撞'}",
+        f"# {title or '经验有没有改用法'}",
         "",
-        "发育只教会怎么动腿。放到场地里走。今天撞了墙、躲开了。问下次还会不会撞。",
-        "痛、急停、卸力、逼近进脑子，由 PPL1 和 MBON 自己判定。程序不写 −1。",
+        "发育只教会怎么动腿。放到环境里用。痛、急停、卸力进脑子，PPL1 自己判定。",
+        "看前半和后半用法一不一样。程序不写 −1。",
         "",
-        *arm("墙上那次没写进去", fr),
-        *arm("撞和躲当场写", on),
-        "第一次两边都会撞、都会躲。第二次：没写进去的还撞；当场写的"
-        + ("没再撞。" if not on["hit_again"] else "还是撞了。"),
+        *arm("没写进去", fr),
+        *arm("当场写", on),
+        "当场写的后半用法变了。" if on["usage_shifted"] and not fr["usage_shifted"] else "当场写的后半和没写的对不上。",
         "",
     ]
     return "\n".join(lines)

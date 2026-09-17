@@ -13,10 +13,10 @@ All of that is open in this repo.
 So anyone can run the demo in seconds without a 1.2 GB download. Two commands switch to MaleCNS.
 
 **Does it learn?**
-Development teaches how to drive the legs. After that the animal walks in an arena.
-It hits a wall and dodges. Contact, halt and unload go into the brain; PPL1
-judges. Next approach: if that kept writing, it does not hit again.
-`python examples/08_online.py`. [RESEARCH_MALECNS.md](RESEARCH_MALECNS.md).
+Development teaches how to drive the legs. After that the animal uses the body
+in an environment. Contact, halt and unload go into the brain; PPL1 judges.
+Compare early vs late usage. `python examples/08_online.py`.
+[RESEARCH_MALECNS.md](RESEARCH_MALECNS.md).
 
 **Does adding neurons give the fly new skills or more intelligence?**
 Add cells like the **whole CNS**, train, then read motors. On MiniCNS, scene-up

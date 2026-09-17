@@ -8,9 +8,9 @@ the same kinds of neuron (MaleCNS 166k → 200k research path). Grown cells inhe
 columns, continue hemilineage birth order, and form new-to-new synapses onto already-born cells.
 `--grow-report` writes a markdown+CSV census of **every** new neuron (`docs/growth/`).
 MaleCNS-first: extra cells like the **whole CNS**, then train, then read motors
-(`examples/07_malecns_expand.py`). After that, walk in an arena: hit a wall,
-dodge, ask if the next approach still hits (`examples/08_online.py`). Contact,
-halt and unload enter the brain; PPL1 judges — there is no programmed −1.
+(`examples/07_malecns_expand.py`). After that, use the body in an environment
+(`examples/08_online.py`): early vs late usage. Contact, halt and unload enter
+the brain; PPL1 judges — there is no programmed −1.
 Optional NeuroMechFly body: map DNg02 L/R onto FlyGym's walking CPG (`flydrones fly --drone flygym`,
 `examples/05_neuromechfly.py`). https://neuromechfly.org
 
