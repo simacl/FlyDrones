@@ -301,8 +301,15 @@ def cmd_circuit(args) -> int:
             reverse=args.reverse,
             clone=args.clone,
             clone_normalize=args.normalize,
+            grow=args.grow,
+            grow_types=args.grow_types,
         )
         print(c.summary())
+        grown = c.meta.get("grown")
+        if grown:
+            top = sorted(grown["by_type"].items(), key=lambda kv: -kv[1])[:12]
+            hist = ", ".join(f"{t}={k}" for t, k in top)
+            print(f"grown {grown['n']} cells like real types (+{grown['new_connections']} synapses): {hist}")
         variants = [(args.name or c.name, c)]
     rows = [run_variant(name, conn, cfg, **probe_kw) for name, conn in variants]
     print(format_table(rows))
@@ -404,6 +411,8 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--extra-neurons", type=int, default=0, help="add unconnected neurons (slower, same flight)")
     sp.add_argument("--normalize", action="store_true", help="with --pop-scale or --clone, keep mean synaptic drive per cell")
     sp.add_argument("--clone", help="add neurons of one type by copying its axons/dendrites, e.g. T4c:96 or T4c:L:48")
+    sp.add_argument("--grow", type=int, help="grow N new cells by resampling real type-to-type synapses (MaleCNS 166k→200k is --grow 34000)")
+    sp.add_argument("--grow-types", help="restrict --grow to these cell types, comma-separated (e.g. T4c,DNg02)")
     sp.add_argument("--ablate", help="cut a pathway, type regexes as pre:post (e.g. T4c:VS)")
     sp.add_argument("--flip", help="negate outgoing synapses of this cell type (e.g. LPi_v)")
     sp.add_argument("--reverse", help="send this type's axons to the other hemisphere (e.g. HS)")

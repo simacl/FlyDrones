@@ -15,6 +15,11 @@ So anyone can run the demo in seconds without a 1.2 GB download. Two commands sw
 **Does it learn?**
 Not yet. The connectome weights are fixed. Dopamine-based plasticity (as in DOOMFLY) is on the roadmap.
 
+**Can I grow MaleCNS from 166k to 200k real cells?**
+Not from EM: that volume is already complete. `flydrones circuit --grow 34000 --brain data/malecns_brain.npz`
+resamples real type-to-type synapses so the extra cells have the same partners, signs and degrees as
+existing population types (never the giant fiber). See [SCIENCE.md](SCIENCE.md#growing-34000-real-like-cells-166k--200k).
+
 **What if I add neurons or synapses?**
 New cells copy the motif of their type (same partners, same sign). `--clone T4c:96` does that;
 `--pop-scale` rebuilds every population and also makes the circuit louder unless `--normalize`.

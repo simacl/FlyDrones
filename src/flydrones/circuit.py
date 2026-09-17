@@ -15,6 +15,7 @@ from .brain import (
     add_silent_neurons,
     clone_neurons,
     flip_signs,
+    grow_like,
     load_connectome,
     reverse_laterality,
     scale_synapses,
@@ -132,6 +133,8 @@ def apply_ops(
     reverse: str | None = None,
     clone: str | None = None,
     clone_normalize: bool = False,
+    grow: int | None = None,
+    grow_types: str | None = None,
     shuffle_seed: int = 1,
 ) -> Connectome:
     from .brain.rewire import parse_clone_spec
@@ -144,6 +147,11 @@ def apply_ops(
     if clone:
         typ, side, n = parse_clone_spec(clone)
         c = clone_neurons(c, _type_pat(typ), n, side=side, normalize=clone_normalize)
+    if grow:
+        pats = None
+        if grow_types:
+            pats = [_type_pat(p.strip()) for p in grow_types.split(",") if p.strip()]
+        c = grow_like(c, int(grow), type_pats=pats, min_pop=1 if pats else 5)
     if ablate_path:
         if ":" not in ablate_path:
             raise ValueError("--ablate needs pre:post type regexes, e.g. T4c:VS")

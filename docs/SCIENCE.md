@@ -114,11 +114,42 @@ A new cell is not a blank vertex. It copies the **motif of its cell type**:
    \(\lfloor k \cdot 48 / n \rfloor\). Extra T4c sit on the existing 6×8 lattice; they do not invent
    new viewing directions.
 6. **Empty axons do nothing.** `--extra-neurons` adds membranes with no synapses. Flight is unchanged.
-7. **MaleCNS cannot grow.** Those neurons were reconstructed by EM. You may clone MiniFly types, or
-   filter MaleCNS (`--core-hops`, `--min-synapses`); you cannot invent traced cells.
+7. **MaleCNS cannot be EM-grown past completeness.** v1.0 is already the whole CNS of one male fly
+   (~166k neurons). There is no reservoir of 34k untraced cells in that volume. What you *can*
+   research is growing cells that obey the same type / side / synapse statistics — see below.
 
-`flydrones circuit --clone T4c:96` and `--clone T4c:96 --normalize` are the two experiments that
-correspond to (2)+(3). `examples/04_rewire.py` and `--compare` include both.
+### Growing 34,000 real-like cells (166k → 200k)
+
+A real adult fly does not have 200k central neurons. Asking for 34k more **true cells** therefore
+means: sample new neurons from the same generative process the connectome implies, not from a
+random graph and not from a grafted gadget with a new job.
+
+`grow_like(connectome, 34_000)` does that:
+
+1. Draw a cell type and side with probability equal to how common it is among population types.
+2. Never draw identified cells (giant fiber `DNp01` stays one per side).
+3. Bootstrap that type's real axons: out-degree and `(target, weight)` pairs are resampled from
+   existing synapses of the same type (same partners, same sign, same typical strength).
+4. Bootstrap dendrites the same way (existing cells grow collaterals onto the newborn).
+5. Birth order: newborns innervate the scaffold that is already there; they do not synapse onto
+   each other in this first model.
+6. The original MaleCNS block is copied unchanged — you can still tell which synapses were
+   measured by EM.
+
+```bash
+flydrones circuit --grow 200                         # MiniFly sanity check
+python examples/06_grow_real.py
+flydrones circuit --grow 34000 --brain data/malecns_brain.npz
+flydrones circuit --grow 5000 --grow-types T4c,DNg02 --brain data/malecns_brain.npz
+```
+
+Still missing, and needed before calling the extra cells "as real as MaleCNS": retinotopic /
+column coordinates, hemilineage birth order, and new-to-new synapses once the cohort exists.
+Those are the next constraints to add, not a different wiring philosophy.
+
+`flydrones circuit --clone T4c:96` copies **one** exemplar. `grow_like` copies the **type's
+distribution**. Use clone when you mean "another T4c like this one"; use grow when you mean
+"34k more neurons of the kinds this brain already has".
 
 `flydrones circuit --compare` and `examples/04_rewire.py` run the same stimulus battery on several MiniFly variants:
 

@@ -56,6 +56,34 @@ def test_clone_t4c_is_louder_unless_normalized():
     assert abs(n - h) < 0.4 * h
 
 
+def test_grow_like_resamples_real_t4c_partners():
+    from flydrones.brain import grow_like
+
+    a = build_minifly()
+    b = grow_like(a, 40, type_pats=["^T4c$"], min_pop=1, seed=0)
+    assert b.n == a.n + 40
+    assert (b.types == "T4c").sum() == (a.types == "T4c").sum() + 40
+    assert (b.types == "DNp01").sum() == 2
+    n0, _ = pathway_weight(a, "^T4c$", "^VS$")
+    n1, _ = pathway_weight(b, "^T4c$", "^VS$")
+    assert n1 > n0
+    t0, _ = pathway_weight(a, "^T4a$", "^HS$")
+    t1, _ = pathway_weight(b, "^T4a$", "^HS$")
+    assert t0 == t1
+    # original MaleCNS/MiniFly block is a leading principal submatrix
+    assert abs(a.weights - b.weights[: a.n, : a.n]).sum() == 0
+
+
+def test_grow_like_skips_giant_fiber():
+    from flydrones.brain import grow_like
+
+    a = build_minifly()
+    b = grow_like(a, 80, min_pop=5, seed=1)
+    assert b.n == a.n + 80
+    assert (b.types == "DNp01").sum() == 2
+    assert set(b.types[a.n :]) <= set(a.types)
+
+
 def test_scale_synapses_doubles_counts():
     a = build_minifly()
     b = scale_synapses(a, 2.0)
